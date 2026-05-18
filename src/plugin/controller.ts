@@ -4,13 +4,26 @@ import type { UiToPluginMessage, Caption, ColorStyle, MoodBoardItem } from '../u
 
 figma.showUI(__html__, { width: 360, height: 600, themeColors: true })
 
-bootstrap()
+bootstrap().catch((err) => {
+  console.error('[SMK Open] bootstrap failed:', err)
+  // Send an empty init so the UI still becomes interactive
+  figma.ui.postMessage({ type: 'init', history: [], collections: [] })
+  figma.notify('Could not load saved state: ' + (err?.message ?? String(err)), { error: true })
+})
 
 async function bootstrap() {
-  const [history, collections] = await Promise.all([
-    figma.clientStorage.getAsync('history').catch(() => []),
-    figma.clientStorage.getAsync('collections').catch(() => []),
-  ])
+  let history: unknown = []
+  let collections: unknown = []
+  try {
+    history = await figma.clientStorage.getAsync('history')
+  } catch (err) {
+    console.warn('[SMK Open] could not read history:', err)
+  }
+  try {
+    collections = await figma.clientStorage.getAsync('collections')
+  } catch (err) {
+    console.warn('[SMK Open] could not read collections:', err)
+  }
   figma.ui.postMessage({
     type: 'init',
     history: Array.isArray(history) ? history : [],
