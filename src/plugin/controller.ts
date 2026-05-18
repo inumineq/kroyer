@@ -10,6 +10,9 @@ figma.ui.onmessage = async (msg: UiToPluginMessage) => {
       case 'insert-image':
         await insertImage(msg.imageBytes, msg.width, msg.height, msg.layerName, msg.caption)
         break
+      case 'open-url':
+        figma.openExternal(msg.url)
+        break
       case 'close':
         figma.closePlugin()
         break

@@ -3,18 +3,27 @@ import { SearchBar } from './components/SearchBar'
 import { FilterPanel } from './components/FilterPanel'
 import { ResultGrid } from './components/ResultGrid'
 import { StateMessage } from './components/StateMessage'
+import { DetailPanel } from './components/DetailPanel'
 import { useSearch } from './hooks/useSearch'
 import { useInsertImage } from './hooks/useInsertImage'
-import { DEFAULT_FILTERS, type Filters } from './types'
+import { DEFAULT_FILTERS, type Filters, type InsertSize } from './types'
 import type { Artwork } from './api/smkClient'
 
 export function App() {
   const [query, setQuery] = useState('')
   const [filters, setFilters] = useState<Filters>(DEFAULT_FILTERS)
-  const [, setSelectedWork] = useState<Artwork | null>(null)
+  const [selectedWork, setSelectedWork] = useState<Artwork | null>(null)
 
   const search = useSearch(query, filters)
   const insert = useInsertImage()
+
+  const handleInsertFromGrid = (work: Artwork) =>
+    insert.insertArtwork(work, { size: 'medium', withCaption: false })
+
+  const handleInsertFromDetail = (size: InsertSize, withCaption: boolean) => {
+    if (!selectedWork) return
+    insert.insertArtwork(selectedWork, { size, withCaption })
+  }
 
   const showFilterCount = search.hasSearched && !search.loading && !search.error
   const showFirstLoad = !search.hasSearched && !query
@@ -57,7 +66,7 @@ export function App() {
           <ResultGrid
             results={search.results}
             onSelect={setSelectedWork}
-            onInsert={(work) => insert.insertArtwork(work, { size: 'medium', withCaption: false })}
+            onInsert={handleInsertFromGrid}
             insertingId={insert.inserting}
           />
         )}
@@ -71,6 +80,16 @@ export function App() {
           </div>
         )}
       </section>
+
+      {selectedWork && (
+        <DetailPanel
+          work={selectedWork}
+          onClose={() => setSelectedWork(null)}
+          onInsert={handleInsertFromDetail}
+          inserting={insert.inserting === selectedWork.object_number}
+          isFavorite={false}
+        />
+      )}
     </main>
   )
 }

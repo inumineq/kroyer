@@ -33,6 +33,7 @@ export type UiToPluginMessage =
   | { type: 'create-color-styles'; baseName: string; styles: ColorStyle[] }
   | { type: 'create-mood-board'; items: MoodBoardItem[]; title: string }
   | { type: 'storage-set'; key: string; value: unknown }
+  | { type: 'open-url'; url: string }
   | { type: 'notify'; message: string; error?: boolean }
   | { type: 'close' }
 
