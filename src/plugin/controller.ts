@@ -14,6 +14,7 @@ bootstrap().catch((err) => {
 async function bootstrap() {
   let history: unknown = []
   let collections: unknown = []
+  let windowSize: unknown = null
   try {
     history = await figma.clientStorage.getAsync('history')
   } catch (err) {
@@ -24,6 +25,21 @@ async function bootstrap() {
   } catch (err) {
     console.warn('[SMK Open] could not read collections:', err)
   }
+  try {
+    windowSize = await figma.clientStorage.getAsync('window-size')
+  } catch (err) {
+    console.warn('[SMK Open] could not read window-size:', err)
+  }
+
+  if (
+    windowSize &&
+    typeof (windowSize as { width?: unknown }).width === 'number' &&
+    typeof (windowSize as { height?: unknown }).height === 'number'
+  ) {
+    const { width, height } = windowSize as { width: number; height: number }
+    figma.ui.resize(width, height)
+  }
+
   figma.ui.postMessage({
     type: 'init',
     history: Array.isArray(history) ? history : [],
@@ -54,6 +70,16 @@ figma.ui.onmessage = async (msg: UiToPluginMessage) => {
         break
       case 'storage-set':
         await figma.clientStorage.setAsync(msg.key, msg.value)
+        break
+      case 'resize':
+        figma.ui.resize(msg.width, msg.height)
+        break
+      case 'resize-commit':
+        figma.ui.resize(msg.width, msg.height)
+        await figma.clientStorage.setAsync('window-size', {
+          width: msg.width,
+          height: msg.height,
+        })
         break
     }
   } catch (err) {

@@ -7,6 +7,7 @@ import { DetailPanel } from './components/DetailPanel'
 import { TabBar } from './components/TabBar'
 import { SearchHistory } from './components/SearchHistory'
 import { CollectionsTab } from './components/CollectionsTab'
+import { ResizeHandle } from './components/ResizeHandle'
 import { useSearch } from './hooks/useSearch'
 import { useInsertImage } from './hooks/useInsertImage'
 import { postToPlugin } from './messages'
@@ -265,6 +266,8 @@ export function App() {
           onToggleFavorite={() => handleToggleFavorite(selectedWork)}
         />
       )}
+
+      <ResizeHandle />
     </main>
   )
 }
