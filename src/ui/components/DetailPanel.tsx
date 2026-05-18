@@ -4,11 +4,14 @@ import { pickImageUrl } from '../api/iiifClient'
 import { postToPlugin } from '../messages'
 import { useEscapeKey } from '../hooks/useEscapeKey'
 import type { InsertSize } from '../types'
+import { PaletteSection } from './PaletteSection'
+import { RelatedWorks } from './RelatedWorks'
 
 type Props = {
   work: Artwork
   onClose: () => void
   onInsert: (size: InsertSize, withCaption: boolean) => void
+  onSelectRelated: (work: Artwork) => void
   inserting: boolean
   isFavorite: boolean
   onToggleFavorite?: () => void
@@ -25,6 +28,7 @@ export function DetailPanel({
   work,
   onClose,
   onInsert,
+  onSelectRelated,
   inserting,
   isFavorite,
   onToggleFavorite,
@@ -139,6 +143,10 @@ export function DetailPanel({
               ))}
             </div>
           )}
+
+          <PaletteSection work={work} />
+
+          <RelatedWorks work={work} onSelect={onSelectRelated} />
 
           {work.frontend_url && (
             <button

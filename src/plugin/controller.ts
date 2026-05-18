@@ -1,6 +1,6 @@
 /// <reference types="@figma/plugin-typings" />
 
-import type { UiToPluginMessage, Caption } from '../ui/messages'
+import type { UiToPluginMessage, Caption, ColorStyle, MoodBoardItem } from '../ui/messages'
 
 figma.showUI(__html__, { width: 360, height: 600, themeColors: true })
 
@@ -24,6 +24,12 @@ figma.ui.onmessage = async (msg: UiToPluginMessage) => {
       case 'insert-image':
         await insertImage(msg.imageBytes, msg.width, msg.height, msg.layerName, msg.caption)
         break
+      case 'create-color-styles':
+        createColorStyles(msg.baseName, msg.styles)
+        break
+      case 'create-mood-board':
+        await createMoodBoard(msg.items, msg.title)
+        break
       case 'open-url':
         figma.openExternal(msg.url)
         break
@@ -35,10 +41,6 @@ figma.ui.onmessage = async (msg: UiToPluginMessage) => {
         break
       case 'storage-set':
         await figma.clientStorage.setAsync(msg.key, msg.value)
-        break
-      case 'create-color-styles':
-      case 'create-mood-board':
-        // Wired up in Phase 4
         break
     }
   } catch (err) {
@@ -81,6 +83,94 @@ async function insertImage(
   figma.currentPage.selection = nodes
   figma.viewport.scrollAndZoomIntoView(nodes)
   figma.notify(`Inserted: ${layerName}`)
+}
+
+function createColorStyles(baseName: string, styles: ColorStyle[]) {
+  for (const s of styles) {
+    const style = figma.createPaintStyle()
+    style.name = `${baseName} / ${s.name}`
+    style.paints = [{ type: 'SOLID', color: { r: s.r, g: s.g, b: s.b } }]
+  }
+  figma.notify(`Created ${styles.length} color ${styles.length === 1 ? 'style' : 'styles'}`)
+}
+
+async function createMoodBoard(items: MoodBoardItem[], title: string) {
+  await Promise.all([
+    figma.loadFontAsync({ family: 'Inter', style: 'Regular' }),
+    figma.loadFontAsync({ family: 'Inter', style: 'Medium' }),
+  ])
+
+  const CARD_W = 280
+  const COLS = 3
+
+  const frame = figma.createFrame()
+  frame.name = `Mood board — ${title}`
+  frame.layoutMode = 'HORIZONTAL'
+  frame.layoutWrap = 'WRAP'
+  frame.primaryAxisSizingMode = 'FIXED'
+  frame.counterAxisSizingMode = 'AUTO'
+  frame.itemSpacing = 16
+  frame.counterAxisSpacing = 24
+  frame.paddingLeft = 24
+  frame.paddingRight = 24
+  frame.paddingTop = 24
+  frame.paddingBottom = 24
+  frame.fills = [{ type: 'SOLID', color: { r: 0.98, g: 0.98, b: 0.98 } }]
+  frame.resize(COLS * CARD_W + (COLS - 1) * 16 + 48, frame.height)
+
+  for (const item of items) {
+    const card = createMoodBoardCard(item, CARD_W)
+    frame.appendChild(card)
+  }
+
+  const center = figma.viewport.center
+  frame.x = Math.round(center.x - frame.width / 2)
+  frame.y = Math.round(center.y - frame.height / 2)
+
+  figma.currentPage.selection = [frame]
+  figma.viewport.scrollAndZoomIntoView([frame])
+  figma.notify(`Mood board created — ${items.length} works`)
+}
+
+function createMoodBoardCard(item: MoodBoardItem, width: number): FrameNode {
+  const card = figma.createFrame()
+  card.name = `${item.artist} — ${item.title}`
+  card.layoutMode = 'VERTICAL'
+  card.itemSpacing = 6
+  card.primaryAxisSizingMode = 'AUTO'
+  card.counterAxisSizingMode = 'FIXED'
+  card.resize(width, 100)
+  card.fills = []
+
+  const aspect = item.width > 0 && item.height > 0 ? item.width / item.height : 1
+  const imgH = Math.max(60, Math.round(width / aspect))
+
+  const image = figma.createImage(item.imageBytes)
+  const rect = figma.createRectangle()
+  rect.resize(width, imgH)
+  rect.fills = [{ type: 'IMAGE', scaleMode: 'FILL', imageHash: image.hash }]
+  rect.cornerRadius = 4
+  rect.name = 'Image'
+  card.appendChild(rect)
+
+  const titleNode = figma.createText()
+  titleNode.fontName = { family: 'Inter', style: 'Medium' }
+  titleNode.fontSize = 12
+  titleNode.characters = item.title || 'Untitled'
+  titleNode.textAutoResize = 'HEIGHT'
+  titleNode.resize(width, titleNode.height)
+  card.appendChild(titleNode)
+
+  const artistNode = figma.createText()
+  artistNode.fontName = { family: 'Inter', style: 'Regular' }
+  artistNode.fontSize = 11
+  artistNode.characters = item.artist || 'Unknown'
+  artistNode.fills = [{ type: 'SOLID', color: { r: 0.42, g: 0.42, b: 0.42 } }]
+  artistNode.textAutoResize = 'HEIGHT'
+  artistNode.resize(width, artistNode.height)
+  card.appendChild(artistNode)
+
+  return card
 }
 
 function formatCaption(caption: Caption): string {

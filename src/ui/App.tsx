@@ -10,6 +10,8 @@ import { CollectionsTab } from './components/CollectionsTab'
 import { useSearch } from './hooks/useSearch'
 import { useInsertImage } from './hooks/useInsertImage'
 import { postToPlugin } from './messages'
+import { fetchImageWithDimensions } from './utils/images'
+import { pickImageUrl } from './api/iiifClient'
 import {
   DEFAULT_FILTERS,
   type Filters,
@@ -39,10 +41,11 @@ export function App() {
   const [collections, setCollections] = useState<Collection[]>([])
   const [initialized, setInitialized] = useState(false)
 
+  const [exportingMoodBoard, setExportingMoodBoard] = useState<{ name: string; progress: number; total: number } | null>(null)
+
   const search = useSearch(query, filters)
   const insert = useInsertImage()
 
-  // Receive initial storage state from the plugin sandbox
   useEffect(() => {
     function onMessage(e: MessageEvent) {
       const msg = e.data?.pluginMessage
@@ -56,13 +59,11 @@ export function App() {
     return () => window.removeEventListener('message', onMessage)
   }, [])
 
-  // Persist history changes
   useEffect(() => {
     if (!initialized) return
     postToPlugin({ type: 'storage-set', key: 'history', value: history })
   }, [history, initialized])
 
-  // Persist collection changes
   useEffect(() => {
     if (!initialized) return
     postToPlugin({ type: 'storage-set', key: 'collections', value: collections })
@@ -104,6 +105,44 @@ export function App() {
 
   function handleRemoveFromCollection(collectionId: string, objectNumber: string) {
     setCollections((prev) => removeWorkFrom(prev, collectionId, objectNumber))
+  }
+
+  async function handleExportMoodBoard(collection: Collection) {
+    const eligible = collection.works.filter((w) => w.image_thumbnail)
+    if (eligible.length === 0) {
+      postToPlugin({ type: 'notify', message: 'No images in this collection to export', error: true })
+      return
+    }
+
+    setExportingMoodBoard({ name: collection.name, progress: 0, total: eligible.length })
+
+    const items = []
+    for (const work of eligible) {
+      const url = pickImageUrl(work, 'medium')
+      if (!url) continue
+      try {
+        const { bytes, width, height } = await fetchImageWithDimensions(url)
+        items.push({
+          imageBytes: bytes,
+          width,
+          height,
+          title: work.titles?.[0]?.title ?? 'Untitled',
+          artist: work.artist?.[0] ?? 'Unknown',
+        })
+      } catch {
+        // Skip individual failures, keep going
+      }
+      setExportingMoodBoard((prev) =>
+        prev ? { ...prev, progress: prev.progress + 1 } : null,
+      )
+    }
+
+    if (items.length > 0) {
+      postToPlugin({ type: 'create-mood-board', items, title: collection.name })
+    } else {
+      postToPlugin({ type: 'notify', message: 'Could not fetch any images', error: true })
+    }
+    setExportingMoodBoard(null)
   }
 
   const showFilterCount = search.hasSearched && !search.loading && !search.error
@@ -188,6 +227,7 @@ export function App() {
           onRemoveWork={handleRemoveFromCollection}
           onSelectWork={setSelectedWork}
           onInsertWork={handleInsertFromGrid}
+          onExportMoodBoard={handleExportMoodBoard}
           insertingId={insert.inserting}
         />
       )}
@@ -201,11 +241,25 @@ export function App() {
         </div>
       )}
 
+      {exportingMoodBoard && (
+        <div className="overlay" role="status" aria-live="polite">
+          <div className="overlay__panel">
+            <div className="overlay__spinner" />
+            <p className="overlay__title">Building mood board…</p>
+            <p className="overlay__hint">
+              {exportingMoodBoard.progress} / {exportingMoodBoard.total}
+            </p>
+          </div>
+        </div>
+      )}
+
       {selectedWork && (
         <DetailPanel
+          key={selectedWork.object_number}
           work={selectedWork}
           onClose={() => setSelectedWork(null)}
           onInsert={handleInsertFromDetail}
+          onSelectRelated={setSelectedWork}
           inserting={insert.inserting === selectedWork.object_number}
           isFavorite={favoriteIds.has(selectedWork.object_number)}
           onToggleFavorite={() => handleToggleFavorite(selectedWork)}
