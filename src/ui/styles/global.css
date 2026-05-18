@@ -1507,3 +1507,52 @@ input {
   margin: 0;
   font-variant-numeric: tabular-nums;
 }
+
+/* ============================================================
+   ErrorBoundary
+   ============================================================ */
+.error-boundary {
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  justify-content: center;
+  height: 100vh;
+  padding: 24px;
+  gap: 6px;
+  text-align: center;
+}
+
+.error-boundary__icon {
+  font-size: 24px;
+  color: var(--error);
+  margin-bottom: 4px;
+}
+
+.error-boundary__title {
+  font-size: 13px;
+  font-weight: 500;
+  margin: 0;
+}
+
+.error-boundary__detail {
+  font-size: 11px;
+  color: var(--fg-secondary);
+  margin: 0;
+  max-width: 240px;
+  word-break: break-word;
+}
+
+.error-boundary__reset {
+  margin-top: 12px;
+  padding: 6px 14px;
+  background: var(--bg-brand);
+  color: var(--fg-on-brand);
+  border: none;
+  border-radius: 6px;
+  font-size: 11px;
+  font-weight: 500;
+}
+
+.error-boundary__reset:hover {
+  background: var(--bg-brand-hover);
+}

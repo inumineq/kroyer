@@ -25,6 +25,17 @@ export function ResultCard({
   const artist = work.artist?.[0] ?? 'Unknown artist'
   const year = work.production_date?.[0]?.period
 
+  function handleDragStart(e: React.DragEvent<HTMLImageElement>) {
+    e.dataTransfer.setData('text/plain', work.object_number)
+    e.dataTransfer.effectAllowed = 'copy'
+  }
+
+  function handleDragEnd(e: React.DragEvent<HTMLImageElement>) {
+    if (e.dataTransfer.dropEffect === 'none' && work.image_thumbnail) {
+      onInsert()
+    }
+  }
+
   return (
     <li className="result-card">
       <button
@@ -44,6 +55,9 @@ export function ResultCard({
               onLoad={() => setLoaded(true)}
               onError={() => setImageError(true)}
               data-loaded={loaded}
+              draggable
+              onDragStart={handleDragStart}
+              onDragEnd={handleDragEnd}
             />
           ) : (
             <div className="result-card__no-image" aria-hidden="true">

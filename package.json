@@ -1,8 +1,8 @@
 {
   "name": "smk-figma-plugin",
-  "version": "0.0.1",
+  "version": "0.1.0",
   "private": true,
-  "description": "Figma plugin for searching and inserting artworks from Statens Museum for Kunst (SMK).",
+  "description": "Figma plugin for searching public-domain artworks from Statens Museum for Kunst (SMK) — search, filter, drag-to-insert, save collections, extract palettes, export mood boards.",
   "license": "MIT",
   "scripts": {
     "dev": "run-p watch:ui watch:plugin",
