@@ -1,88 +1,76 @@
 import { useState } from 'react'
-import { searchArtworks, type Artwork } from './api/smkClient'
+import { SearchBar } from './components/SearchBar'
+import { FilterPanel } from './components/FilterPanel'
+import { ResultGrid } from './components/ResultGrid'
+import { StateMessage } from './components/StateMessage'
+import { useSearch } from './hooks/useSearch'
+import { useInsertImage } from './hooks/useInsertImage'
+import { DEFAULT_FILTERS, type Filters } from './types'
+import type { Artwork } from './api/smkClient'
 
 export function App() {
   const [query, setQuery] = useState('')
-  const [publicDomainOnly, setPublicDomainOnly] = useState(true)
-  const [results, setResults] = useState<Artwork[]>([])
-  const [loading, setLoading] = useState(false)
-  const [error, setError] = useState<string | null>(null)
+  const [filters, setFilters] = useState<Filters>(DEFAULT_FILTERS)
+  const [, setSelectedWork] = useState<Artwork | null>(null)
 
-  async function handleSearch(e: React.FormEvent) {
-    e.preventDefault()
-    if (!query.trim()) return
+  const search = useSearch(query, filters)
+  const insert = useInsertImage()
 
-    setLoading(true)
-    setError(null)
-    try {
-      const { items } = await searchArtworks({
-        keys: query,
-        publicDomainOnly,
-        hasImage: true,
-        rows: 30,
-      })
-      setResults(items)
-    } catch (err) {
-      setError(err instanceof Error ? err.message : 'Search failed')
-    } finally {
-      setLoading(false)
-    }
-  }
+  const showFilterCount = search.hasSearched && !search.loading && !search.error
+  const showFirstLoad = !search.hasSearched && !query
+  const showNoResults =
+    search.hasSearched && !search.loading && !search.error && search.results.length === 0
+  const showError = !!search.error
+  const showResults = search.results.length > 0
 
   return (
     <main className="app">
       <header className="app__header">
-        <h1 className="app__title">SMK Open</h1>
-        <p className="app__subtitle">Search artworks from Statens Museum for Kunst</p>
+        <SearchBar value={query} onChange={setQuery} loading={search.loading} />
+        <FilterPanel
+          filters={filters}
+          onChange={setFilters}
+          resultCount={showFilterCount ? search.found : undefined}
+        />
       </header>
 
-      <form className="search" onSubmit={handleSearch}>
-        <input
-          type="search"
-          className="search__input"
-          placeholder="Search artist, title, period…"
-          value={query}
-          onChange={(e) => setQuery(e.target.value)}
-          autoFocus
-        />
-        <button type="submit" className="search__submit" disabled={loading}>
-          {loading ? 'Searching…' : 'Search'}
-        </button>
-      </form>
+      <section className="app__body">
+        {showFirstLoad && <StateMessage variant="first-load" />}
 
-      <label className="filter-toggle">
-        <input
-          type="checkbox"
-          checked={publicDomainOnly}
-          onChange={(e) => setPublicDomainOnly(e.target.checked)}
-        />
-        <span>Public domain only</span>
-      </label>
+        {showError && (
+          <StateMessage
+            variant="error"
+            message={search.error ?? undefined}
+            hint="The SMK API might be down. Wait a moment and try again."
+          />
+        )}
 
-      {error && <p className="error">{error}</p>}
+        {showNoResults && (
+          <StateMessage
+            variant="no-results"
+            corrections={search.corrections}
+            onCorrectionClick={(c) => setQuery(c)}
+          />
+        )}
 
-      {!loading && !error && results.length === 0 && query && (
-        <p className="empty">No results. Try a different search.</p>
-      )}
+        {showResults && (
+          <ResultGrid
+            results={search.results}
+            onSelect={setSelectedWork}
+            onInsert={(work) => insert.insertArtwork(work, { size: 'medium', withCaption: false })}
+            insertingId={insert.inserting}
+          />
+        )}
 
-      <ul className="results">
-        {results.map((work) => (
-          <li key={work.object_number} className="result-card">
-            {work.image_thumbnail && (
-              <img
-                src={work.image_thumbnail}
-                alt={work.titles?.[0]?.title ?? 'Untitled'}
-                className="result-card__image"
-                loading="lazy"
-              />
-            )}
-            <div className="result-card__meta">
-              <p className="result-card__title">{work.titles?.[0]?.title ?? 'Untitled'}</p>
-              <p className="result-card__artist">{work.artist?.[0] ?? 'Unknown artist'}</p>
-            </div>
-          </li>
-        ))}
-      </ul>
+        {insert.insertError && (
+          <div className="app__toast app__toast--error" role="alert">
+            {insert.insertError}
+            <button type="button" onClick={insert.clearError}>
+              ×
+            </button>
+          </div>
+        )}
+      </section>
     </main>
   )
 }

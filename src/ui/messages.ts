@@ -1,0 +1,47 @@
+import type { Collection } from './types'
+
+export type Caption = {
+  title: string
+  artist: string
+  year?: string
+}
+
+export type MoodBoardItem = {
+  imageBytes: Uint8Array
+  width: number
+  height: number
+  title: string
+  artist: string
+}
+
+export type ColorStyle = {
+  name: string
+  r: number
+  g: number
+  b: number
+}
+
+export type UiToPluginMessage =
+  | {
+      type: 'insert-image'
+      imageBytes: Uint8Array
+      width: number
+      height: number
+      layerName: string
+      caption?: Caption
+    }
+  | { type: 'create-color-styles'; baseName: string; styles: ColorStyle[] }
+  | { type: 'create-mood-board'; items: MoodBoardItem[]; title: string }
+  | { type: 'storage-set'; key: string; value: unknown }
+  | { type: 'notify'; message: string; error?: boolean }
+  | { type: 'close' }
+
+export type PluginToUiMessage = {
+  type: 'init'
+  history: string[]
+  collections: Collection[]
+}
+
+export function postToPlugin(msg: UiToPluginMessage) {
+  parent.postMessage({ pluginMessage: msg }, '*')
+}
