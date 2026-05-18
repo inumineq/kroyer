@@ -3,11 +3,12 @@ import { useEffect, useRef } from 'react'
 type Props = {
   value: string
   onChange: (value: string) => void
+  onSubmit?: () => void
   loading?: boolean
   placeholder?: string
 }
 
-export function SearchBar({ value, onChange, loading, placeholder }: Props) {
+export function SearchBar({ value, onChange, onSubmit, loading, placeholder }: Props) {
   const inputRef = useRef<HTMLInputElement>(null)
 
   useEffect(() => {
@@ -15,7 +16,14 @@ export function SearchBar({ value, onChange, loading, placeholder }: Props) {
   }, [])
 
   return (
-    <div className="search-bar">
+    <form
+      className="search-bar"
+      onSubmit={(e) => {
+        e.preventDefault()
+        onSubmit?.()
+        inputRef.current?.blur()
+      }}
+    >
       <svg
         className="search-bar__icon"
         width="14"
@@ -48,6 +56,6 @@ export function SearchBar({ value, onChange, loading, placeholder }: Props) {
         </button>
       )}
       {loading && <div className="search-bar__spinner" aria-label="Searching" />}
-    </div>
+    </form>
   )
 }

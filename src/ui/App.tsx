@@ -1,32 +1,114 @@
-import { useState } from 'react'
+import { useEffect, useState } from 'react'
 import { SearchBar } from './components/SearchBar'
 import { FilterPanel } from './components/FilterPanel'
 import { ResultGrid } from './components/ResultGrid'
 import { StateMessage } from './components/StateMessage'
 import { DetailPanel } from './components/DetailPanel'
+import { TabBar } from './components/TabBar'
+import { SearchHistory } from './components/SearchHistory'
+import { CollectionsTab } from './components/CollectionsTab'
 import { useSearch } from './hooks/useSearch'
 import { useInsertImage } from './hooks/useInsertImage'
-import { DEFAULT_FILTERS, type Filters, type InsertSize } from './types'
+import { postToPlugin } from './messages'
+import {
+  DEFAULT_FILTERS,
+  type Filters,
+  type InsertSize,
+  type Tab,
+  type Collection,
+} from './types'
 import type { Artwork } from './api/smkClient'
+import {
+  ensureDefaultCollection,
+  favoriteIdsFor,
+  toggleWorkIn,
+  removeWorkFrom,
+  updateSearchHistory,
+  makeCollection,
+  renameCollection,
+  deleteCollection,
+} from './utils/collections'
 
 export function App() {
+  const [tab, setTab] = useState<Tab>('search')
   const [query, setQuery] = useState('')
   const [filters, setFilters] = useState<Filters>(DEFAULT_FILTERS)
   const [selectedWork, setSelectedWork] = useState<Artwork | null>(null)
 
+  const [history, setHistory] = useState<string[]>([])
+  const [collections, setCollections] = useState<Collection[]>([])
+  const [initialized, setInitialized] = useState(false)
+
   const search = useSearch(query, filters)
   const insert = useInsertImage()
 
-  const handleInsertFromGrid = (work: Artwork) =>
-    insert.insertArtwork(work, { size: 'medium', withCaption: false })
+  // Receive initial storage state from the plugin sandbox
+  useEffect(() => {
+    function onMessage(e: MessageEvent) {
+      const msg = e.data?.pluginMessage
+      if (msg?.type === 'init') {
+        setHistory(msg.history ?? [])
+        setCollections(ensureDefaultCollection(msg.collections ?? []))
+        setInitialized(true)
+      }
+    }
+    window.addEventListener('message', onMessage)
+    return () => window.removeEventListener('message', onMessage)
+  }, [])
 
-  const handleInsertFromDetail = (size: InsertSize, withCaption: boolean) => {
+  // Persist history changes
+  useEffect(() => {
+    if (!initialized) return
+    postToPlugin({ type: 'storage-set', key: 'history', value: history })
+  }, [history, initialized])
+
+  // Persist collection changes
+  useEffect(() => {
+    if (!initialized) return
+    postToPlugin({ type: 'storage-set', key: 'collections', value: collections })
+  }, [collections, initialized])
+
+  const defaultCollection = collections[0]
+  const favoriteIds = favoriteIdsFor(defaultCollection)
+
+  function handleSubmit() {
+    if (!query.trim()) return
+    setHistory((prev) => updateSearchHistory(prev, query))
+  }
+
+  function handleInsertFromGrid(work: Artwork) {
+    insert.insertArtwork(work, { size: 'medium', withCaption: false })
+  }
+
+  function handleInsertFromDetail(size: InsertSize, withCaption: boolean) {
     if (!selectedWork) return
     insert.insertArtwork(selectedWork, { size, withCaption })
   }
 
+  function handleToggleFavorite(work: Artwork) {
+    if (!defaultCollection) return
+    setCollections((prev) => toggleWorkIn(prev, defaultCollection.id, work))
+  }
+
+  function handleCreateCollection(name: string) {
+    setCollections((prev) => [...prev, makeCollection(name)])
+  }
+
+  function handleRenameCollection(id: string, name: string) {
+    setCollections((prev) => renameCollection(prev, id, name))
+  }
+
+  function handleDeleteCollection(id: string) {
+    setCollections((prev) => ensureDefaultCollection(deleteCollection(prev, id)))
+  }
+
+  function handleRemoveFromCollection(collectionId: string, objectNumber: string) {
+    setCollections((prev) => removeWorkFrom(prev, collectionId, objectNumber))
+  }
+
   const showFilterCount = search.hasSearched && !search.loading && !search.error
-  const showFirstLoad = !search.hasSearched && !query
+  const showFirstLoad = !search.hasSearched && !query && history.length === 0
+  const showHistory = !search.hasSearched && !query && history.length > 0
   const showNoResults =
     search.hasSearched && !search.loading && !search.error && search.results.length === 0
   const showError = !!search.error
@@ -34,52 +116,90 @@ export function App() {
 
   return (
     <main className="app">
-      <header className="app__header">
-        <SearchBar value={query} onChange={setQuery} loading={search.loading} />
-        <FilterPanel
-          filters={filters}
-          onChange={setFilters}
-          resultCount={showFilterCount ? search.found : undefined}
+      <TabBar
+        tab={tab}
+        onChange={setTab}
+        collectionCount={collections.reduce((sum, c) => sum + c.works.length, 0)}
+      />
+
+      {tab === 'search' && (
+        <>
+          <header className="app__header">
+            <SearchBar
+              value={query}
+              onChange={setQuery}
+              onSubmit={handleSubmit}
+              loading={search.loading}
+            />
+            <FilterPanel
+              filters={filters}
+              onChange={setFilters}
+              resultCount={showFilterCount ? search.found : undefined}
+            />
+          </header>
+
+          <section className="app__body">
+            {showFirstLoad && <StateMessage variant="first-load" />}
+
+            {showHistory && (
+              <SearchHistory
+                history={history}
+                onSelect={(q) => setQuery(q)}
+                onClear={() => setHistory([])}
+              />
+            )}
+
+            {showError && (
+              <StateMessage
+                variant="error"
+                message={search.error ?? undefined}
+                hint="The SMK API might be down. Wait a moment and try again."
+              />
+            )}
+
+            {showNoResults && (
+              <StateMessage
+                variant="no-results"
+                corrections={search.corrections}
+                onCorrectionClick={(c) => setQuery(c)}
+              />
+            )}
+
+            {showResults && (
+              <ResultGrid
+                results={search.results}
+                onSelect={setSelectedWork}
+                onInsert={handleInsertFromGrid}
+                insertingId={insert.inserting}
+                favoriteIds={favoriteIds}
+                onToggleFavorite={handleToggleFavorite}
+              />
+            )}
+          </section>
+        </>
+      )}
+
+      {tab === 'collections' && (
+        <CollectionsTab
+          collections={collections}
+          onCreate={handleCreateCollection}
+          onRename={handleRenameCollection}
+          onDelete={handleDeleteCollection}
+          onRemoveWork={handleRemoveFromCollection}
+          onSelectWork={setSelectedWork}
+          onInsertWork={handleInsertFromGrid}
+          insertingId={insert.inserting}
         />
-      </header>
+      )}
 
-      <section className="app__body">
-        {showFirstLoad && <StateMessage variant="first-load" />}
-
-        {showError && (
-          <StateMessage
-            variant="error"
-            message={search.error ?? undefined}
-            hint="The SMK API might be down. Wait a moment and try again."
-          />
-        )}
-
-        {showNoResults && (
-          <StateMessage
-            variant="no-results"
-            corrections={search.corrections}
-            onCorrectionClick={(c) => setQuery(c)}
-          />
-        )}
-
-        {showResults && (
-          <ResultGrid
-            results={search.results}
-            onSelect={setSelectedWork}
-            onInsert={handleInsertFromGrid}
-            insertingId={insert.inserting}
-          />
-        )}
-
-        {insert.insertError && (
-          <div className="app__toast app__toast--error" role="alert">
-            {insert.insertError}
-            <button type="button" onClick={insert.clearError}>
-              ×
-            </button>
-          </div>
-        )}
-      </section>
+      {insert.insertError && (
+        <div className="app__toast app__toast--error" role="alert">
+          {insert.insertError}
+          <button type="button" onClick={insert.clearError}>
+            ×
+          </button>
+        </div>
+      )}
 
       {selectedWork && (
         <DetailPanel
@@ -87,7 +207,8 @@ export function App() {
           onClose={() => setSelectedWork(null)}
           onInsert={handleInsertFromDetail}
           inserting={insert.inserting === selectedWork.object_number}
-          isFavorite={false}
+          isFavorite={favoriteIds.has(selectedWork.object_number)}
+          onToggleFavorite={() => handleToggleFavorite(selectedWork)}
         />
       )}
     </main>

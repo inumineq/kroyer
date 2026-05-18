@@ -4,6 +4,20 @@ import type { UiToPluginMessage, Caption } from '../ui/messages'
 
 figma.showUI(__html__, { width: 360, height: 600, themeColors: true })
 
+bootstrap()
+
+async function bootstrap() {
+  const [history, collections] = await Promise.all([
+    figma.clientStorage.getAsync('history').catch(() => []),
+    figma.clientStorage.getAsync('collections').catch(() => []),
+  ])
+  figma.ui.postMessage({
+    type: 'init',
+    history: Array.isArray(history) ? history : [],
+    collections: Array.isArray(collections) ? collections : [],
+  })
+}
+
 figma.ui.onmessage = async (msg: UiToPluginMessage) => {
   try {
     switch (msg.type) {
@@ -19,10 +33,12 @@ figma.ui.onmessage = async (msg: UiToPluginMessage) => {
       case 'notify':
         figma.notify(msg.message, { error: msg.error ?? false })
         break
+      case 'storage-set':
+        await figma.clientStorage.setAsync(msg.key, msg.value)
+        break
       case 'create-color-styles':
       case 'create-mood-board':
-      case 'storage-set':
-        // Wired up in later phases
+        // Wired up in Phase 4
         break
     }
   } catch (err) {
