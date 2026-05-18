@@ -1,6 +1,8 @@
-# SMK Open
+# Krøyer
 
 A Figma plugin for searching and inserting artworks from [Statens Museum for Kunst](https://www.smk.dk/) (SMK), Denmark's National Gallery.
+
+Named after [Peder Severin Krøyer](https://en.wikipedia.org/wiki/Peder_Severin_Kr%C3%B8yer) (1851–1909), one of the most beloved Skagen Painters.
 
 Search ~260,000 artworks. Filter by rights — most importantly Public Domain (CC0). Drop images directly into your Figma designs with attribution. Save works into collections, extract color palettes, and generate mood boards.
 
@@ -123,7 +125,9 @@ Built with TypeScript, React 18, and Vite.
 
 **Long description:**
 
-> SMK Open brings Denmark's National Gallery (Statens Museum for Kunst) straight into Figma. Search the museum's collection of ~260,000 artworks — from Hammershøi to Eckersberg to medieval altarpieces — and drop images right onto your canvas with attribution.
+> Krøyer brings Denmark's National Gallery (Statens Museum for Kunst) straight into Figma. Search the museum's collection of ~260,000 artworks — from Hammershøi to Eckersberg to medieval altarpieces — and drop images right onto your canvas with attribution.
+>
+> Named after the Danish painter Peder Severin Krøyer (1851–1909).
 >
 > Most importantly: 147,000+ works are public domain (CC0) and free to use commercially. Filter is on by default so you only see usable works.
 >

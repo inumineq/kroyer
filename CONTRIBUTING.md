@@ -1,6 +1,6 @@
 # Contributing
 
-Thanks for your interest in SMK Open. The project is small and unopinionated — most contributions are welcome.
+Thanks for your interest in Krøyer. The project is small and unopinionated — most contributions are welcome.
 
 ## Development setup
 
@@ -15,7 +15,7 @@ npm run dev
 
 1. **Plugins → Development → Import plugin from manifest…**
 2. Select `manifest.json`
-3. **Plugins → Development → SMK Open** to launch
+3. **Plugins → Development → Krøyer** to launch
 
 Changes to source files trigger rebuilds. Re-run the plugin in Figma to pick up the changes.
 

@@ -5,7 +5,7 @@ import type { UiToPluginMessage, Caption, ColorStyle, MoodBoardItem } from '../u
 figma.showUI(__html__, { width: 360, height: 600, themeColors: true })
 
 bootstrap().catch((err) => {
-  console.error('[SMK Open] bootstrap failed:', err)
+  console.error('[Krøyer] bootstrap failed:', err)
   // Send an empty init so the UI still becomes interactive
   figma.ui.postMessage({ type: 'init', history: [], collections: [] })
   figma.notify('Could not load saved state: ' + (err?.message ?? String(err)), { error: true })
@@ -18,17 +18,17 @@ async function bootstrap() {
   try {
     history = await figma.clientStorage.getAsync('history')
   } catch (err) {
-    console.warn('[SMK Open] could not read history:', err)
+    console.warn('[Krøyer] could not read history:', err)
   }
   try {
     collections = await figma.clientStorage.getAsync('collections')
   } catch (err) {
-    console.warn('[SMK Open] could not read collections:', err)
+    console.warn('[Krøyer] could not read collections:', err)
   }
   try {
     windowSize = await figma.clientStorage.getAsync('window-size')
   } catch (err) {
-    console.warn('[SMK Open] could not read window-size:', err)
+    console.warn('[Krøyer] could not read window-size:', err)
   }
 
   if (
