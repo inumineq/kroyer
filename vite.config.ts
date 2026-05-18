@@ -9,6 +9,11 @@ export default defineConfig(({ mode }) => {
       build: {
         emptyOutDir: false,
         outDir: 'dist',
+        // Figma's plugin sandbox parses with an older JS engine that
+        // doesn't accept ?. or ?? — transpile down to ES2017 to avoid
+        // "Syntax error on line 1: Unexpected token ?"
+        target: 'es2017',
+        minify: 'esbuild',
         lib: {
           entry: resolve(__dirname, 'src/plugin/controller.ts'),
           formats: ['iife'],
