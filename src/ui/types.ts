@@ -1,4 +1,5 @@
-import type { Artwork } from './api/smkClient'
+export type { Collection } from '../shared/model'
+export type { ImageSize as InsertSize } from './images/sizing'
 
 export type Filters = {
   creator?: string
@@ -13,13 +14,4 @@ export const DEFAULT_FILTERS: Filters = {
   hasImage: true,
 }
 
-export type Collection = {
-  id: string
-  name: string
-  createdAt: string
-  works: Artwork[]
-}
-
 export type Tab = 'search' | 'collections'
-
-export type InsertSize = 'thumbnail' | 'medium' | 'large' | 'native'

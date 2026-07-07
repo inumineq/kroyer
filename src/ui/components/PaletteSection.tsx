@@ -1,7 +1,9 @@
 import { useState } from 'react'
-import type { Artwork } from '../api/smkClient'
+import type { Artwork } from '../../shared/model'
+import { hasDisplayableImage } from '../../shared/model'
 import { extractPalette, rgbToHex, type PaletteColor } from '../utils/palette'
-import { pickImageUrl } from '../api/iiifClient'
+import { imageUrlFor } from '../images/sizing'
+import { getProvider } from '../providers/registry'
 import { postToPlugin } from '../messages'
 
 type Props = {
@@ -15,7 +17,7 @@ export function PaletteSection({ work }: Props) {
   const [created, setCreated] = useState(false)
 
   async function extract() {
-    const url = pickImageUrl(work, 'thumbnail')
+    const url = imageUrlFor(work, 'thumbnail')
     if (!url) return
     setLoading(true)
     setError(null)
@@ -31,9 +33,8 @@ export function PaletteSection({ work }: Props) {
 
   function createStyles() {
     if (!colors) return
-    const artist = work.artist?.[0] ?? 'Artwork'
-    const title = work.titles?.[0]?.title ?? work.object_number
-    const baseName = `SMK / ${artist} / ${title}`
+    const shortLabel = getProvider(work.provider).shortLabel
+    const baseName = `${shortLabel} / ${work.artist} / ${work.title}`
     postToPlugin({
       type: 'create-color-styles',
       baseName,
@@ -48,7 +49,7 @@ export function PaletteSection({ work }: Props) {
     setTimeout(() => setCreated(false), 2000)
   }
 
-  if (!work.image_thumbnail) return null
+  if (!hasDisplayableImage(work)) return null
 
   return (
     <div className="palette">

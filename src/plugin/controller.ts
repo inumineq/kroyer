@@ -1,6 +1,7 @@
 /// <reference types="@figma/plugin-typings" />
 
 import type { UiToPluginMessage, Caption, ColorStyle, MoodBoardItem } from '../ui/messages'
+import { ALLOWED_STORAGE_KEYS, STORAGE_KEYS } from '../shared/storageKeys'
 
 figma.showUI(__html__, { width: 360, height: 600, themeColors: true })
 
@@ -11,25 +12,24 @@ bootstrap().catch((err) => {
   figma.notify('Could not load saved state: ' + (err?.message ?? String(err)), { error: true })
 })
 
+async function readStorageKey(key: string): Promise<unknown> {
+  try {
+    return await figma.clientStorage.getAsync(key)
+  } catch (err) {
+    console.warn(`[Krøyer] could not read ${key}:`, err)
+    return undefined
+  }
+}
+
 async function bootstrap() {
-  let history: unknown = []
-  let collections: unknown = []
-  let windowSize: unknown = null
-  try {
-    history = await figma.clientStorage.getAsync('history')
-  } catch (err) {
-    console.warn('[Krøyer] could not read history:', err)
-  }
-  try {
-    collections = await figma.clientStorage.getAsync('collections')
-  } catch (err) {
-    console.warn('[Krøyer] could not read collections:', err)
-  }
-  try {
-    windowSize = await figma.clientStorage.getAsync('window-size')
-  } catch (err) {
-    console.warn('[Krøyer] could not read window-size:', err)
-  }
+  // Legacy pre-v2 collections key is kept as rollback insurance, migrated UI-side
+  const [history, collections, collectionsV2, provider, windowSize] = await Promise.all([
+    readStorageKey(STORAGE_KEYS.history),
+    readStorageKey(STORAGE_KEYS.legacyCollections),
+    readStorageKey(STORAGE_KEYS.collectionsV2),
+    readStorageKey(STORAGE_KEYS.provider),
+    readStorageKey(STORAGE_KEYS.windowSize),
+  ])
 
   if (
     windowSize &&
@@ -44,8 +44,11 @@ async function bootstrap() {
     type: 'init',
     history: Array.isArray(history) ? history : [],
     collections: Array.isArray(collections) ? collections : [],
+    collectionsV2,
+    provider,
   })
 }
+
 
 figma.ui.onmessage = async (msg: UiToPluginMessage) => {
   try {
@@ -69,7 +72,23 @@ figma.ui.onmessage = async (msg: UiToPluginMessage) => {
         figma.notify(msg.message, { error: msg.error ?? false })
         break
       case 'storage-set':
-        await figma.clientStorage.setAsync(msg.key, msg.value)
+        if (ALLOWED_STORAGE_KEYS.indexOf(msg.key) === -1) {
+          console.warn('[Krøyer] ignoring storage-set for unknown key:', msg.key)
+          break
+        }
+        try {
+          await figma.clientStorage.setAsync(msg.key, msg.value)
+        } catch (err) {
+          // A large legacy collections copy can leave no quota headroom for
+          // the v2 envelope. Rollback insurance is moot if v2 can't persist —
+          // free the legacy key and retry once.
+          if (msg.key === STORAGE_KEYS.collectionsV2) {
+            await figma.clientStorage.deleteAsync(STORAGE_KEYS.legacyCollections)
+            await figma.clientStorage.setAsync(msg.key, msg.value)
+          } else {
+            throw err
+          }
+        }
         break
       case 'resize':
         figma.ui.resize(msg.width, msg.height)
@@ -88,6 +107,37 @@ figma.ui.onmessage = async (msg: UiToPluginMessage) => {
   }
 }
 
+/**
+ * Not every Figma install has Inter (org fonts, offline). Try a fallback
+ * chain and finally the first available font; null means "no text possible".
+ */
+async function loadTextFont(style: string): Promise<FontName | null> {
+  const candidates: FontName[] = [
+    { family: 'Inter', style },
+    { family: 'Roboto', style },
+    { family: 'Inter', style: 'Regular' },
+    { family: 'Roboto', style: 'Regular' },
+  ]
+  for (const font of candidates) {
+    try {
+      await figma.loadFontAsync(font)
+      return font
+    } catch {
+      // try the next candidate
+    }
+  }
+  try {
+    const first = (await figma.listAvailableFontsAsync())[0]?.fontName
+    if (first) {
+      await figma.loadFontAsync(first)
+      return first
+    }
+  } catch {
+    // fall through
+  }
+  return null
+}
+
 async function insertImage(
   bytes: Uint8Array,
   width: number,
@@ -95,6 +145,10 @@ async function insertImage(
   layerName: string,
   caption: Caption | undefined,
 ) {
+  // Load the font BEFORE creating any nodes so a font failure can't leave
+  // an orphaned rectangle behind.
+  const captionFont = caption ? await loadTextFont('Regular') : null
+
   const image = figma.createImage(bytes)
   const rect = figma.createRectangle()
   rect.name = layerName
@@ -107,21 +161,26 @@ async function insertImage(
 
   const nodes: SceneNode[] = [rect]
 
-  if (caption) {
-    await figma.loadFontAsync({ family: 'Inter', style: 'Regular' })
+  if (caption && captionFont) {
     const text = figma.createText()
-    text.fontName = { family: 'Inter', style: 'Regular' }
+    text.fontName = captionFont
     text.fontSize = 12
     text.characters = formatCaption(caption)
     text.x = rect.x
     text.y = rect.y + height + 8
-    text.textAutoResize = 'WIDTH_AND_HEIGHT'
+    // Wrap to the image width instead of running past it
+    text.textAutoResize = 'HEIGHT'
+    text.resize(width, text.height)
     nodes.push(text)
   }
 
   figma.currentPage.selection = nodes
   figma.viewport.scrollAndZoomIntoView(nodes)
-  figma.notify(`Inserted: ${layerName}`)
+  if (caption && !captionFont) {
+    figma.notify(`Inserted without caption (no font available): ${layerName}`)
+  } else {
+    figma.notify(`Inserted: ${layerName}`)
+  }
 }
 
 function createColorStyles(baseName: string, styles: ColorStyle[]) {
@@ -134,10 +193,8 @@ function createColorStyles(baseName: string, styles: ColorStyle[]) {
 }
 
 async function createMoodBoard(items: MoodBoardItem[], title: string) {
-  await Promise.all([
-    figma.loadFontAsync({ family: 'Inter', style: 'Regular' }),
-    figma.loadFontAsync({ family: 'Inter', style: 'Medium' }),
-  ])
+  const regularFont = await loadTextFont('Regular')
+  const mediumFont = (await loadTextFont('Medium')) ?? regularFont
 
   const CARD_W = 280
   const COLS = 3
@@ -157,9 +214,22 @@ async function createMoodBoard(items: MoodBoardItem[], title: string) {
   frame.fills = [{ type: 'SOLID', color: { r: 0.98, g: 0.98, b: 0.98 } }]
   frame.resize(COLS * CARD_W + (COLS - 1) * 16 + 48, frame.height)
 
+  let added = 0
   for (const item of items) {
-    const card = createMoodBoardCard(item, CARD_W)
-    frame.appendChild(card)
+    // One bad image must not abort the whole board
+    try {
+      const card = createMoodBoardCard(item, CARD_W, mediumFont, regularFont)
+      frame.appendChild(card)
+      added++
+    } catch (err) {
+      console.warn('[Krøyer] skipped mood board card:', item.title, err)
+    }
+  }
+
+  if (added === 0) {
+    frame.remove()
+    figma.notify('Could not create any mood board cards', { error: true })
+    return
   }
 
   const center = figma.viewport.center
@@ -168,10 +238,24 @@ async function createMoodBoard(items: MoodBoardItem[], title: string) {
 
   figma.currentPage.selection = [frame]
   figma.viewport.scrollAndZoomIntoView([frame])
-  figma.notify(`Mood board created — ${items.length} works`)
+  const skipped = items.length - added
+  figma.notify(
+    skipped > 0
+      ? `Mood board created — ${added} works (${skipped} skipped)`
+      : `Mood board created — ${added} works`,
+  )
 }
 
-function createMoodBoardCard(item: MoodBoardItem, width: number): FrameNode {
+function createMoodBoardCard(
+  item: MoodBoardItem,
+  width: number,
+  titleFont: FontName | null,
+  bodyFont: FontName | null,
+): FrameNode {
+  // createImage first: if the bytes are bad it throws before any node
+  // exists, so the per-card catch never leaves an orphaned frame behind.
+  const image = figma.createImage(item.imageBytes)
+
   const card = figma.createFrame()
   card.name = `${item.artist} — ${item.title}`
   card.layoutMode = 'VERTICAL'
@@ -184,7 +268,6 @@ function createMoodBoardCard(item: MoodBoardItem, width: number): FrameNode {
   const aspect = item.width > 0 && item.height > 0 ? item.width / item.height : 1
   const imgH = Math.max(60, Math.round(width / aspect))
 
-  const image = figma.createImage(item.imageBytes)
   const rect = figma.createRectangle()
   rect.resize(width, imgH)
   rect.fills = [{ type: 'IMAGE', scaleMode: 'FILL', imageHash: image.hash }]
@@ -192,22 +275,26 @@ function createMoodBoardCard(item: MoodBoardItem, width: number): FrameNode {
   rect.name = 'Image'
   card.appendChild(rect)
 
-  const titleNode = figma.createText()
-  titleNode.fontName = { family: 'Inter', style: 'Medium' }
-  titleNode.fontSize = 12
-  titleNode.characters = item.title || 'Untitled'
-  titleNode.textAutoResize = 'HEIGHT'
-  titleNode.resize(width, titleNode.height)
-  card.appendChild(titleNode)
+  if (titleFont) {
+    const titleNode = figma.createText()
+    titleNode.fontName = titleFont
+    titleNode.fontSize = 12
+    titleNode.characters = item.title || 'Untitled'
+    titleNode.textAutoResize = 'HEIGHT'
+    titleNode.resize(width, titleNode.height)
+    card.appendChild(titleNode)
+  }
 
-  const artistNode = figma.createText()
-  artistNode.fontName = { family: 'Inter', style: 'Regular' }
-  artistNode.fontSize = 11
-  artistNode.characters = item.artist || 'Unknown'
-  artistNode.fills = [{ type: 'SOLID', color: { r: 0.42, g: 0.42, b: 0.42 } }]
-  artistNode.textAutoResize = 'HEIGHT'
-  artistNode.resize(width, artistNode.height)
-  card.appendChild(artistNode)
+  if (bodyFont) {
+    const artistNode = figma.createText()
+    artistNode.fontName = bodyFont
+    artistNode.fontSize = 11
+    artistNode.characters = item.artist || 'Unknown'
+    artistNode.fills = [{ type: 'SOLID', color: { r: 0.42, g: 0.42, b: 0.42 } }]
+    artistNode.textAutoResize = 'HEIGHT'
+    artistNode.resize(width, artistNode.height)
+    card.appendChild(artistNode)
+  }
 
   return card
 }

@@ -1,5 +1,4 @@
-import type { Artwork } from '../api/smkClient'
-import type { Collection } from '../types'
+import type { Artwork, Collection } from '../../shared/model'
 
 export function makeCollection(name: string): Collection {
   return {
@@ -24,12 +23,10 @@ export function toggleWorkIn(
 ): Collection[] {
   return collections.map((c) => {
     if (c.id !== collectionId) return c
-    const exists = c.works.some((w) => w.object_number === work.object_number)
+    const exists = c.works.some((w) => w.key === work.key)
     return {
       ...c,
-      works: exists
-        ? c.works.filter((w) => w.object_number !== work.object_number)
-        : [work, ...c.works],
+      works: exists ? c.works.filter((w) => w.key !== work.key) : [work, ...c.works],
     }
   })
 }
@@ -37,18 +34,18 @@ export function toggleWorkIn(
 export function removeWorkFrom(
   collections: Collection[],
   collectionId: string,
-  objectNumber: string,
+  workKey: string,
 ): Collection[] {
   return collections.map((c) =>
     c.id === collectionId
-      ? { ...c, works: c.works.filter((w) => w.object_number !== objectNumber) }
+      ? { ...c, works: c.works.filter((w) => w.key !== workKey) }
       : c,
   )
 }
 
 export function favoriteIdsFor(collection: Collection | undefined): Set<string> {
   if (!collection) return new Set()
-  return new Set(collection.works.map((w) => w.object_number))
+  return new Set(collection.works.map((w) => w.key))
 }
 
 export function updateSearchHistory(history: string[], query: string, max = 5): string[] {

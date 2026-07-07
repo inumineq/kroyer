@@ -1,4 +1,4 @@
-import { useEffect, useState } from 'react'
+import { useEffect, useRef, useState } from 'react'
 import { SearchBar } from './components/SearchBar'
 import { FilterPanel } from './components/FilterPanel'
 import { ResultGrid } from './components/ResultGrid'
@@ -12,7 +12,13 @@ import { useSearch } from './hooks/useSearch'
 import { useInsertImage } from './hooks/useInsertImage'
 import { postToPlugin } from './messages'
 import { fetchImageWithDimensions } from './utils/images'
-import { pickImageUrl } from './api/iiifClient'
+import { mapWithConcurrency } from './utils/async'
+import { imageUrlFor } from './images/sizing'
+import { getProvider, isProviderId, DEFAULT_PROVIDER_ID } from './providers/registry'
+import { ProviderPicker } from './components/ProviderPicker'
+import type { ProviderId } from '../shared/model'
+import { COLLECTIONS_V2_KEY, loadCollections, makeEnvelope } from './storage/migrate'
+import { quotaStatus } from './storage/quota'
 import {
   DEFAULT_FILTERS,
   type Filters,
@@ -20,7 +26,9 @@ import {
   type Tab,
   type Collection,
 } from './types'
-import type { Artwork } from './api/smkClient'
+import { hasDisplayableImage, type Artwork } from '../shared/model'
+import { STORAGE_KEYS } from '../shared/storageKeys'
+import type { QuotaStatus } from './storage/quota'
 import {
   ensureDefaultCollection,
   favoriteIdsFor,
@@ -44,7 +52,9 @@ export function App() {
 
   const [exportingMoodBoard, setExportingMoodBoard] = useState<{ name: string; progress: number; total: number } | null>(null)
 
-  const search = useSearch(query, filters)
+  const [providerId, setProviderId] = useState<ProviderId>(DEFAULT_PROVIDER_ID)
+  const provider = getProvider(providerId)
+  const search = useSearch(provider, query, filters)
   const insert = useInsertImage()
 
   useEffect(() => {
@@ -52,7 +62,8 @@ export function App() {
       const msg = e.data?.pluginMessage
       if (msg?.type === 'init') {
         setHistory(msg.history ?? [])
-        setCollections(ensureDefaultCollection(msg.collections ?? []))
+        setCollections(ensureDefaultCollection(loadCollections(msg.collectionsV2, msg.collections)))
+        if (isProviderId(msg.provider)) setProviderId(msg.provider)
         setInitialized(true)
       }
     }
@@ -62,12 +73,30 @@ export function App() {
 
   useEffect(() => {
     if (!initialized) return
-    postToPlugin({ type: 'storage-set', key: 'history', value: history })
+    postToPlugin({ type: 'storage-set', key: STORAGE_KEYS.history, value: history })
   }, [history, initialized])
 
+  const quotaWarned = useRef(false)
+  const quotaRef = useRef<QuotaStatus>('ok')
   useEffect(() => {
     if (!initialized) return
-    postToPlugin({ type: 'storage-set', key: 'collections', value: collections })
+    const envelope = makeEnvelope(collections)
+    postToPlugin({ type: 'storage-set', key: COLLECTIONS_V2_KEY, value: envelope })
+
+    // Serializing the envelope is the expensive part — do it once here and
+    // let click handlers read the cached status (at most one change stale).
+    const status = quotaStatus(envelope)
+    quotaRef.current = status
+    if (status !== 'ok' && !quotaWarned.current) {
+      quotaWarned.current = true
+      postToPlugin({
+        type: 'notify',
+        message: 'Collection storage is nearly full — consider removing some works',
+        error: true,
+      })
+    } else if (status === 'ok') {
+      quotaWarned.current = false
+    }
   }, [collections, initialized])
 
   const defaultCollection = collections[0]
@@ -76,6 +105,11 @@ export function App() {
   function handleSubmit() {
     if (!query.trim()) return
     setHistory((prev) => updateSearchHistory(prev, query))
+  }
+
+  function handleProviderChange(id: ProviderId) {
+    setProviderId(id)
+    postToPlugin({ type: 'storage-set', key: STORAGE_KEYS.provider, value: id })
   }
 
   function handleInsertFromGrid(work: Artwork) {
@@ -89,6 +123,15 @@ export function App() {
 
   function handleToggleFavorite(work: Artwork) {
     if (!defaultCollection) return
+    const isAdd = !favoriteIds.has(work.key)
+    if (isAdd && quotaRef.current === 'full') {
+      postToPlugin({
+        type: 'notify',
+        message: 'Collection storage is full — remove some works before adding more',
+        error: true,
+      })
+      return
+    }
     setCollections((prev) => toggleWorkIn(prev, defaultCollection.id, work))
   }
 
@@ -104,12 +147,12 @@ export function App() {
     setCollections((prev) => ensureDefaultCollection(deleteCollection(prev, id)))
   }
 
-  function handleRemoveFromCollection(collectionId: string, objectNumber: string) {
-    setCollections((prev) => removeWorkFrom(prev, collectionId, objectNumber))
+  function handleRemoveFromCollection(collectionId: string, workKey: string) {
+    setCollections((prev) => removeWorkFrom(prev, collectionId, workKey))
   }
 
   async function handleExportMoodBoard(collection: Collection) {
-    const eligible = collection.works.filter((w) => w.image_thumbnail)
+    const eligible = collection.works.filter(hasDisplayableImage)
     if (eligible.length === 0) {
       postToPlugin({ type: 'notify', message: 'No images in this collection to export', error: true })
       return
@@ -117,26 +160,27 @@ export function App() {
 
     setExportingMoodBoard({ name: collection.name, progress: 0, total: eligible.length })
 
-    const items = []
-    for (const work of eligible) {
-      const url = pickImageUrl(work, 'medium')
-      if (!url) continue
-      try {
+    const fetched = await mapWithConcurrency(
+      eligible,
+      4,
+      async (work) => {
+        const url = imageUrlFor(work, 'medium')
+        if (!url) throw new Error('no image')
         const { bytes, width, height } = await fetchImageWithDimensions(url)
-        items.push({
+        return {
           imageBytes: bytes,
           width,
           height,
-          title: work.titles?.[0]?.title ?? 'Untitled',
-          artist: work.artist?.[0] ?? 'Unknown',
-        })
-      } catch {
-        // Skip individual failures, keep going
-      }
-      setExportingMoodBoard((prev) =>
-        prev ? { ...prev, progress: prev.progress + 1 } : null,
-      )
-    }
+          title: work.title,
+          artist: work.artist,
+        }
+      },
+      () =>
+        setExportingMoodBoard((prev) =>
+          prev ? { ...prev, progress: prev.progress + 1 } : null,
+        ),
+    )
+    const items = fetched.filter((item) => item !== null)
 
     if (items.length > 0) {
       postToPlugin({ type: 'create-mood-board', items, title: collection.name })
@@ -165,6 +209,7 @@ export function App() {
       {tab === 'search' && (
         <>
           <header className="app__header">
+            <ProviderPicker value={providerId} onChange={handleProviderChange} />
             <SearchBar
               value={query}
               onChange={setQuery}
@@ -174,6 +219,7 @@ export function App() {
             <FilterPanel
               filters={filters}
               onChange={setFilters}
+              capabilities={provider.capabilities}
               resultCount={showFilterCount ? search.found : undefined}
             />
           </header>
@@ -193,7 +239,7 @@ export function App() {
               <StateMessage
                 variant="error"
                 message={search.error ?? undefined}
-                hint="The SMK API might be down. Wait a moment and try again."
+                hint={`The ${provider.shortLabel} API might be down. Wait a moment and try again.`}
               />
             )}
 
@@ -206,14 +252,30 @@ export function App() {
             )}
 
             {showResults && (
-              <ResultGrid
-                results={search.results}
-                onSelect={setSelectedWork}
-                onInsert={handleInsertFromGrid}
-                insertingId={insert.inserting}
-                favoriteIds={favoriteIds}
-                onToggleFavorite={handleToggleFavorite}
-              />
+              <>
+                <ResultGrid
+                  results={search.results}
+                  onSelect={setSelectedWork}
+                  onInsert={handleInsertFromGrid}
+                  insertingId={insert.inserting}
+                  favoriteIds={favoriteIds}
+                  onToggleFavorite={handleToggleFavorite}
+                />
+                {search.hasMore && (
+                  <div className="load-more">
+                    <button
+                      type="button"
+                      className="load-more__button"
+                      onClick={search.loadMore}
+                      disabled={search.loadingMore}
+                    >
+                      {search.loadingMore
+                        ? 'Loading…'
+                        : `Load more (${search.results.length.toLocaleString('en-US')} of ${search.found.toLocaleString('en-US')})`}
+                    </button>
+                  </div>
+                )}
+              </>
             )}
           </section>
         </>
@@ -256,13 +318,13 @@ export function App() {
 
       {selectedWork && (
         <DetailPanel
-          key={selectedWork.object_number}
+          key={selectedWork.key}
           work={selectedWork}
           onClose={() => setSelectedWork(null)}
           onInsert={handleInsertFromDetail}
           onSelectRelated={setSelectedWork}
-          inserting={insert.inserting === selectedWork.object_number}
-          isFavorite={favoriteIds.has(selectedWork.object_number)}
+          inserting={insert.inserting === selectedWork.key}
+          isFavorite={favoriteIds.has(selectedWork.key)}
           onToggleFavorite={() => handleToggleFavorite(selectedWork)}
         />
       )}

@@ -1,6 +1,8 @@
-import { useState } from 'react'
-import type { Artwork } from '../api/smkClient'
-import { pickImageUrl } from '../api/iiifClient'
+import { Fragment, useState } from 'react'
+import type { Artwork } from '../../shared/model'
+import { hasDisplayableImage, isFreelyUsable, RIGHTS_DISPLAY } from '../../shared/model'
+import { imageUrlFor } from '../images/sizing'
+import { getProvider } from '../providers/registry'
 import { postToPlugin } from '../messages'
 import { useEscapeKey } from '../hooks/useEscapeKey'
 import type { InsertSize } from '../types'
@@ -38,15 +40,13 @@ export function DetailPanel({
 
   useEscapeKey(onClose)
 
-  const title = work.titles?.[0]?.title ?? 'Untitled'
-  const artist = work.artist?.[0] ?? 'Unknown artist'
-  const period = work.production_date?.[0]?.period
-  const techniques = work.techniques?.join(', ')
-  const credit = work.credit_line?.[0]
-  const previewUrl = pickImageUrl(work, 'medium')
+  const provider = getProvider(work.provider)
+  const previewUrl = imageUrlFor(work, 'medium')
+  const freelyUsable = isFreelyUsable(work.rights)
+  const paragraphs = work.description?.split('\n\n') ?? []
 
   return (
-    <div className="detail-panel" role="dialog" aria-modal="true" aria-label={`Details for ${title}`}>
+    <div className="detail-panel" role="dialog" aria-modal="true" aria-label={`Details for ${work.title}`}>
       <header className="detail-panel__header">
         <button type="button" className="detail-panel__back" onClick={onClose} aria-label="Back to results">
           <svg width="12" height="12" viewBox="0 0 12 12" aria-hidden="true">
@@ -80,65 +80,52 @@ export function DetailPanel({
       <div className="detail-panel__body">
         <div className="detail-panel__image-wrap">
           {previewUrl ? (
-            <img src={previewUrl} alt={title} className="detail-panel__image" />
+            <img src={previewUrl} alt={work.title} className="detail-panel__image" />
           ) : (
             <div className="detail-panel__no-image">No image available</div>
           )}
-          {!work.public_domain && (
-            <span className="detail-panel__rights-badge" title="Under copyright">
-              © Under copyright
+          {freelyUsable ? (
+            <span className="detail-panel__pd-badge" title="Free to use, including commercially">
+              {RIGHTS_DISPLAY[work.rights].label}
             </span>
-          )}
-          {work.public_domain && (
-            <span className="detail-panel__pd-badge" title="Public domain (CC0)">
-              Public Domain
+          ) : (
+            <span className="detail-panel__rights-badge" title={RIGHTS_DISPLAY[work.rights].label}>
+              {RIGHTS_DISPLAY[work.rights].label}
             </span>
           )}
         </div>
 
         <div className="detail-panel__meta">
-          <h2 className="detail-panel__title">{title}</h2>
+          <h2 className="detail-panel__title">{work.title}</h2>
           <p className="detail-panel__artist">
-            {artist}
-            {period && <span className="detail-panel__year"> · {period}</span>}
+            {work.artist}
+            {work.dateText && <span className="detail-panel__year"> · {work.dateText}</span>}
           </p>
 
           <dl className="detail-panel__props">
-            {techniques && (
+            {work.medium && (
               <>
                 <dt>Technique</dt>
-                <dd>{techniques}</dd>
+                <dd>{work.medium}</dd>
               </>
             )}
-            {work.object_names?.[0]?.name && (
-              <>
-                <dt>Type</dt>
-                <dd>{work.object_names.map((n) => n.name).join(', ')}</dd>
-              </>
-            )}
-            {work.responsible_department && (
-              <>
-                <dt>Department</dt>
-                <dd>{work.responsible_department}</dd>
-              </>
-            )}
-            {work.object_number && (
-              <>
-                <dt>Object no.</dt>
-                <dd>{work.object_number}</dd>
-              </>
-            )}
-            {credit && (
+            {Object.entries(work.extra ?? {}).map(([label, value]) => (
+              <Fragment key={label}>
+                <dt>{label}</dt>
+                <dd>{value}</dd>
+              </Fragment>
+            ))}
+            {work.creditLine && (
               <>
                 <dt>Credit</dt>
-                <dd>{credit}</dd>
+                <dd>{work.creditLine}</dd>
               </>
             )}
           </dl>
 
-          {work.notes && work.notes.length > 0 && (
+          {paragraphs.length > 0 && (
             <div className="detail-panel__notes">
-              {work.notes.map((note, i) => (
+              {paragraphs.map((note, i) => (
                 <p key={i}>{note}</p>
               ))}
             </div>
@@ -148,13 +135,13 @@ export function DetailPanel({
 
           <RelatedWorks work={work} onSelect={onSelectRelated} />
 
-          {work.frontend_url && (
+          {work.sourceUrl && (
             <button
               type="button"
               className="detail-panel__external"
-              onClick={() => postToPlugin({ type: 'open-url', url: work.frontend_url! })}
+              onClick={() => postToPlugin({ type: 'open-url', url: work.sourceUrl! })}
             >
-              View on open.smk.dk ↗
+              View on {provider.shortLabel} ↗
             </button>
           )}
         </div>
@@ -191,7 +178,7 @@ export function DetailPanel({
           type="button"
           className="detail-panel__insert"
           onClick={() => onInsert(size, withCaption)}
-          disabled={inserting || !work.image_thumbnail}
+          disabled={inserting || !hasDisplayableImage(work)}
         >
           {inserting ? 'Inserting…' : 'Insert into Figma'}
         </button>

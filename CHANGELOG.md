@@ -4,6 +4,31 @@ All notable changes to this project are documented in this file.
 
 The format loosely follows [Keep a Changelog](https://keepachangelog.com/en/1.1.0/), and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0.html).
 
+## [0.2.0] — Unreleased
+
+Multi-museum release: Krøyer now searches four museums' open-access collections behind a provider abstraction. Implements Phases 0–4 of [ROADMAP.md](./ROADMAP.md).
+
+### Added
+- **Three new museums** (all keyless open APIs): Art Institute of Chicago, Cleveland Museum of Art, and The Metropolitan Museum of Art — selectable via a museum picker next to the search bar (choice persisted)
+- **Load more** pagination — results accumulate page by page instead of stopping at 30
+- Filter panel adapts per museum: only filters the selected API supports are shown
+- Provider badge on result cards; rights shown as a proper enum (CC0 / public domain / copyrighted / unknown)
+- Test/lint/CI safety net: vitest (53 tests), ESLint, GitHub Actions
+- Build-time check that every provider domain is declared in `manifest.json`
+
+### Changed
+- Normalized `Artwork` model behind an `ArtProvider` interface; components no longer read raw museum API fields
+- Collections persist under a versioned `collections.v2` key; legacy collections migrate automatically (old key kept one release as rollback insurance)
+- SMK search requests a `fields=` subset instead of the full payload
+- Mood-board images fetch 4-at-a-time (was sequential); a failed card is skipped instead of aborting the board
+
+### Fixed
+- Search requests are now actually cancelled (abort signal reaches `fetch`)
+- Images larger than Figma's 4096px `createImage` limit are clamped via IIIF or canvas-downscaled instead of failing
+- A missing caption font no longer orphans the inserted rectangle; fallback chain Inter → Roboto → first available, caption skipped as a last resort
+- Captions wrap to the image width instead of overflowing
+- `clientStorage` quota guarded: warning near the limit, adds blocked when full, unknown storage keys rejected in the sandbox
+
 ## [0.1.0] — 2026-05-18
 
 Initial release. Implements all v1 features per the original scoping document.
