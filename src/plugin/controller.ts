@@ -50,39 +50,7 @@ async function bootstrap() {
     collectionsV2,
     provider,
   })
-
-  // TODO(probe): TEMPORARY — REMOVE BEFORE MERGE
-  // Decision-gate probe for the AIC Cloudflare fix (see plan.md Step 1).
-  // Confirms main-thread fetch() of a live AIC IIIF URL — and
-  // figma.createImageAsync of the same URL — actually succeed from the
-  // plugin sandbox, in both Figma desktop and browser dev mode. Remove this
-  // whole block once the probe has been run and the result is known.
-  {
-    const probeUrl =
-      'https://www.artic.edu/iiif/2/2d484387-2509-5e8e-2c43-22f9981972eb/full/400,/0/default.jpg'
-    try {
-      const res = await fetch(probeUrl)
-      const buf = await res.arrayBuffer()
-      console.log(
-        '[Krøyer][probe] main-thread fetch() status:',
-        res.status,
-        'bytes:',
-        buf.byteLength,
-      )
-    } catch (err) {
-      console.log('[Krøyer][probe] main-thread fetch() threw:', err)
-    }
-    try {
-      const image = await figma.createImageAsync(probeUrl)
-      const bytes = await image.getBytesAsync()
-      console.log('[Krøyer][probe] figma.createImageAsync bytes:', bytes.byteLength)
-    } catch (err) {
-      console.log('[Krøyer][probe] figma.createImageAsync threw:', err)
-    }
-  }
-  // END TODO(probe)
 }
-
 
 figma.ui.onmessage = async (msg: UiToPluginMessage) => {
   try {
