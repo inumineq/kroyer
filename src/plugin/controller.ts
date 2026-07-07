@@ -11,25 +11,21 @@ bootstrap().catch((err) => {
   figma.notify('Could not load saved state: ' + (err?.message ?? String(err)), { error: true })
 })
 
+async function readStorageKey(key: string): Promise<unknown> {
+  try {
+    return await figma.clientStorage.getAsync(key)
+  } catch (err) {
+    console.warn(`[Krøyer] could not read ${key}:`, err)
+    return undefined
+  }
+}
+
 async function bootstrap() {
-  let history: unknown = []
-  let collections: unknown = []
-  let windowSize: unknown = null
-  try {
-    history = await figma.clientStorage.getAsync('history')
-  } catch (err) {
-    console.warn('[Krøyer] could not read history:', err)
-  }
-  try {
-    collections = await figma.clientStorage.getAsync('collections')
-  } catch (err) {
-    console.warn('[Krøyer] could not read collections:', err)
-  }
-  try {
-    windowSize = await figma.clientStorage.getAsync('window-size')
-  } catch (err) {
-    console.warn('[Krøyer] could not read window-size:', err)
-  }
+  const history = await readStorageKey('history')
+  // Legacy pre-v2 key; kept as rollback insurance and migrated UI-side
+  const collections = await readStorageKey('collections')
+  const collectionsV2 = await readStorageKey('collections.v2')
+  const windowSize = await readStorageKey('window-size')
 
   if (
     windowSize &&
@@ -44,8 +40,12 @@ async function bootstrap() {
     type: 'init',
     history: Array.isArray(history) ? history : [],
     collections: Array.isArray(collections) ? collections : [],
+    collectionsV2,
   })
 }
+
+// Only keys the UI legitimately persists; anything else is dropped.
+const ALLOWED_STORAGE_KEYS = ['history', 'collections.v2', 'window-size', 'provider']
 
 figma.ui.onmessage = async (msg: UiToPluginMessage) => {
   try {
@@ -69,6 +69,10 @@ figma.ui.onmessage = async (msg: UiToPluginMessage) => {
         figma.notify(msg.message, { error: msg.error ?? false })
         break
       case 'storage-set':
+        if (ALLOWED_STORAGE_KEYS.indexOf(msg.key) === -1) {
+          console.warn('[Krøyer] ignoring storage-set for unknown key:', msg.key)
+          break
+        }
         await figma.clientStorage.setAsync(msg.key, msg.value)
         break
       case 'resize':

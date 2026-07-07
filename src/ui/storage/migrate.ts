@@ -3,6 +3,37 @@ import { smkToArtwork } from '../providers/smk/mapper'
 import type { SmkArtwork } from '../providers/smk/types'
 
 /**
+ * Collections moved to a versioned envelope under a NEW storage key with the
+ * provider refactor. The legacy 'collections' key (raw SMK objects) is left
+ * untouched for one release as rollback insurance.
+ */
+export const COLLECTIONS_V2_KEY = 'collections.v2'
+
+export type CollectionsEnvelope = {
+  version: 2
+  collections: Collection[]
+}
+
+export function makeEnvelope(collections: Collection[]): CollectionsEnvelope {
+  return { version: 2, collections }
+}
+
+/**
+ * Pick the freshest stored state: a valid v2 envelope wins; otherwise fall
+ * back to migrating the legacy key. Works are re-hydrated defensively in
+ * both paths so a single corrupt entry never loses the whole store.
+ */
+export function loadCollections(v2Raw: unknown, legacyRaw: unknown): Collection[] {
+  if (v2Raw && typeof v2Raw === 'object') {
+    const envelope = v2Raw as Record<string, unknown>
+    if (envelope.version === 2 && Array.isArray(envelope.collections)) {
+      return hydrateCollections(envelope.collections)
+    }
+  }
+  return hydrateCollections(legacyRaw)
+}
+
+/**
  * Collections persisted before the provider refactor stored raw SMK API
  * objects. Detect the shape per work and map legacy ones through the SMK
  * mapper; unmappable entries are skipped rather than failing the whole load.

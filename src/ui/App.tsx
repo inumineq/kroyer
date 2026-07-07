@@ -1,4 +1,4 @@
-import { useEffect, useState } from 'react'
+import { useEffect, useRef, useState } from 'react'
 import { SearchBar } from './components/SearchBar'
 import { FilterPanel } from './components/FilterPanel'
 import { ResultGrid } from './components/ResultGrid'
@@ -14,7 +14,8 @@ import { postToPlugin } from './messages'
 import { fetchImageWithDimensions } from './utils/images'
 import { imageUrlFor } from './images/sizing'
 import { getProvider, DEFAULT_PROVIDER_ID } from './providers/registry'
-import { hydrateCollections } from './storage/migrate'
+import { COLLECTIONS_V2_KEY, loadCollections, makeEnvelope } from './storage/migrate'
+import { quotaStatus } from './storage/quota'
 import {
   DEFAULT_FILTERS,
   type Filters,
@@ -55,7 +56,7 @@ export function App() {
       const msg = e.data?.pluginMessage
       if (msg?.type === 'init') {
         setHistory(msg.history ?? [])
-        setCollections(ensureDefaultCollection(hydrateCollections(msg.collections)))
+        setCollections(ensureDefaultCollection(loadCollections(msg.collectionsV2, msg.collections)))
         setInitialized(true)
       }
     }
@@ -68,9 +69,23 @@ export function App() {
     postToPlugin({ type: 'storage-set', key: 'history', value: history })
   }, [history, initialized])
 
+  const quotaWarned = useRef(false)
   useEffect(() => {
     if (!initialized) return
-    postToPlugin({ type: 'storage-set', key: 'collections', value: collections })
+    const envelope = makeEnvelope(collections)
+    postToPlugin({ type: 'storage-set', key: COLLECTIONS_V2_KEY, value: envelope })
+
+    const status = quotaStatus(envelope)
+    if (status !== 'ok' && !quotaWarned.current) {
+      quotaWarned.current = true
+      postToPlugin({
+        type: 'notify',
+        message: 'Collection storage is nearly full — consider removing some works',
+        error: true,
+      })
+    } else if (status === 'ok') {
+      quotaWarned.current = false
+    }
   }, [collections, initialized])
 
   const defaultCollection = collections[0]
@@ -92,6 +107,15 @@ export function App() {
 
   function handleToggleFavorite(work: Artwork) {
     if (!defaultCollection) return
+    const isAdd = !favoriteIds.has(work.key)
+    if (isAdd && quotaStatus(makeEnvelope(collections)) === 'full') {
+      postToPlugin({
+        type: 'notify',
+        message: 'Collection storage is full — remove some works before adding more',
+        error: true,
+      })
+      return
+    }
     setCollections((prev) => toggleWorkIn(prev, defaultCollection.id, work))
   }
 

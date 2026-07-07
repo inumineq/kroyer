@@ -1,5 +1,5 @@
 import { describe, expect, it } from 'vitest'
-import { hydrateCollections } from './migrate'
+import { hydrateCollections, loadCollections, makeEnvelope } from './migrate'
 import { SMK_FIXTURE_FULL } from '../providers/smk/__fixtures__/artwork'
 import { smkToArtwork } from '../providers/smk/mapper'
 
@@ -42,5 +42,32 @@ describe('hydrateCollections', () => {
   it('skips malformed collection entries', () => {
     const result = hydrateCollections([{ name: 'no id' }, null])
     expect(result).toEqual([])
+  })
+})
+
+describe('loadCollections', () => {
+  const normalized = smkToArtwork(SMK_FIXTURE_FULL)
+  const v2 = makeEnvelope([{ id: 'c1', name: 'V2', createdAt: 'x', works: [normalized] }])
+  const legacy = [{ id: 'c2', name: 'Legacy', createdAt: 'x', works: [SMK_FIXTURE_FULL] }]
+
+  it('prefers a valid v2 envelope over legacy data', () => {
+    const result = loadCollections(v2, legacy)
+    expect(result).toHaveLength(1)
+    expect(result[0].name).toBe('V2')
+  })
+
+  it('falls back to migrating legacy data when v2 is absent', () => {
+    const result = loadCollections(undefined, legacy)
+    expect(result[0].name).toBe('Legacy')
+    expect(result[0].works[0].key).toBe('smk:KMS3352')
+  })
+
+  it('falls back when the v2 value is malformed', () => {
+    expect(loadCollections({ version: 99 }, legacy)[0].name).toBe('Legacy')
+    expect(loadCollections('garbage', legacy)[0].name).toBe('Legacy')
+  })
+
+  it('returns empty when nothing is stored', () => {
+    expect(loadCollections(undefined, undefined)).toEqual([])
   })
 })

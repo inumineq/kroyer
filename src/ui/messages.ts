@@ -1,5 +1,3 @@
-import type { Collection } from '../shared/model'
-
 export type Caption = {
   title: string
   artist: string
@@ -42,7 +40,10 @@ export type UiToPluginMessage =
 export type PluginToUiMessage = {
   type: 'init'
   history: string[]
-  collections: Collection[]
+  /** Legacy pre-v2 raw storage value — migrated on the UI side */
+  collections: unknown
+  /** Versioned envelope from the collections.v2 key, when present */
+  collectionsV2?: unknown
 }
 
 export function postToPlugin(msg: UiToPluginMessage) {
