@@ -6,7 +6,7 @@ Named after [Peder Severin Krøyer](https://en.wikipedia.org/wiki/Peder_Severin_
 
 Search ~260,000 artworks. Filter by rights — most importantly Public Domain (CC0). Drop images directly into your Figma designs with attribution. Save works into collections, extract color palettes, and generate mood boards.
 
-**Status:** v0.1.0 — feature-complete v1, ready for Figma Community submission.
+**Status:** v0.1.0 — feature-complete v1, ready for Figma Community submission. See [ROADMAP.md](./ROADMAP.md) for the analysis and phased plan toward multi-museum support.
 
 ## Features
 

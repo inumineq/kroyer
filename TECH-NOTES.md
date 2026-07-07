@@ -78,6 +78,8 @@ https://similar.api.smk.dk/similar/?object_number=KMS3352
 
 ## Open items for future versions
 
+See [ROADMAP.md](./ROADMAP.md) for the full codebase analysis and the phased plan (provider abstraction, additional museums, correctness fixes) that supersedes this list.
+
 - **Period filter under load** — verify deep history queries (`[production_dates_period:1500-1900]` etc.) don't time out.
 - **Deep pagination** — `offset=5000+` performance is untested.
 - **3D file support** — possible v2 feature, would need a Figma 3D embed strategy.
