@@ -32,7 +32,10 @@ const objectCache = new Map<string, Artwork | null>()
  * public-domain filter runs client-side, post-hydration, filling pages on
  * demand instead of hydrating the whole universe up front.
  */
-type PdFillState = { works: Artwork[]; consumed: number }
+// Carries its own universe snapshot: pdCache and idCache evict
+// independently, so `consumed` must never be replayed against a refetched
+// (possibly drifted) ID list.
+type PdFillState = { ids: string[]; works: Artwork[]; consumed: number }
 const pdCache = new Map<string, PdFillState>()
 
 function cachePut<K, V>(cache: Map<K, V>, key: K, value: V, max: number) {
@@ -187,12 +190,14 @@ async function searchPublicDomainOnly(
 ): Promise<SearchPage> {
   let state = cacheGet(pdCache, cacheKey)
   if (!state) {
-    state = { works: [], consumed: 0 }
+    state = { ids, works: [], consumed: 0 }
     cachePut(pdCache, cacheKey, state, PD_CACHE_MAX)
   }
 
-  while (needsMoreForPage(state.works.length, state.consumed, ids.length, query.page, query.pageSize)) {
-    const batch = ids.slice(state.consumed, state.consumed + query.pageSize)
+  while (
+    needsMoreForPage(state.works.length, state.consumed, state.ids.length, query.page, query.pageSize)
+  ) {
+    const batch = state.ids.slice(state.consumed, state.consumed + query.pageSize)
     const hydrated = await mapWithConcurrency(batch, HYDRATE_CONCURRENCY, (id) =>
       fetchObject(id, signal),
     )
@@ -213,7 +218,8 @@ async function searchPublicDomainOnly(
     // Exact totals are impossible without hydrating the whole universe up
     // front; this is an honest, growing "found so far" count instead.
     total: state.works.length,
-    hasMore: state.works.length > (query.page + 1) * query.pageSize || state.consumed < ids.length,
+    hasMore:
+      state.works.length > (query.page + 1) * query.pageSize || state.consumed < state.ids.length,
   }
 }
 
