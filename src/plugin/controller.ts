@@ -5,6 +5,9 @@ import { ALLOWED_STORAGE_KEYS, STORAGE_KEYS } from '../shared/storageKeys'
 
 figma.showUI(__html__, { width: 360, height: 600, themeColors: true })
 
+/** Hosts `fetchImageForUi` is willing to fetch — never become an open proxy. */
+const IMAGE_FETCH_ALLOWLIST = ['www.artic.edu']
+
 bootstrap().catch((err) => {
   console.error('[Krøyer] bootstrap failed:', err)
   // Send an empty init so the UI still becomes interactive
@@ -47,6 +50,37 @@ async function bootstrap() {
     collectionsV2,
     provider,
   })
+
+  // TODO(probe): TEMPORARY — REMOVE BEFORE MERGE
+  // Decision-gate probe for the AIC Cloudflare fix (see plan.md Step 1).
+  // Confirms main-thread fetch() of a live AIC IIIF URL — and
+  // figma.createImageAsync of the same URL — actually succeed from the
+  // plugin sandbox, in both Figma desktop and browser dev mode. Remove this
+  // whole block once the probe has been run and the result is known.
+  {
+    const probeUrl =
+      'https://www.artic.edu/iiif/2/2d484387-2509-5e8e-2c43-22f9981972eb/full/400,/0/default.jpg'
+    try {
+      const res = await fetch(probeUrl)
+      const buf = await res.arrayBuffer()
+      console.log(
+        '[Krøyer][probe] main-thread fetch() status:',
+        res.status,
+        'bytes:',
+        buf.byteLength,
+      )
+    } catch (err) {
+      console.log('[Krøyer][probe] main-thread fetch() threw:', err)
+    }
+    try {
+      const image = await figma.createImageAsync(probeUrl)
+      const bytes = await image.getBytesAsync()
+      console.log('[Krøyer][probe] figma.createImageAsync bytes:', bytes.byteLength)
+    } catch (err) {
+      console.log('[Krøyer][probe] figma.createImageAsync threw:', err)
+    }
+  }
+  // END TODO(probe)
 }
 
 
@@ -100,10 +134,43 @@ figma.ui.onmessage = async (msg: UiToPluginMessage) => {
           height: msg.height,
         })
         break
+      case 'fetch-image':
+        // Errors are caught inside fetchImageForUi and always resolved as a
+        // {error} result — never rethrown — so a bad image URL can't hit the
+        // outer catch-all here (no toast spam, no hung UI-side promise).
+        await fetchImageForUi(msg.url, msg.requestId)
+        break
     }
   } catch (err) {
     const message = err instanceof Error ? err.message : 'Plugin error'
     figma.notify(message, { error: true })
+  }
+}
+
+/**
+ * Fetches image bytes from the main thread on behalf of the UI iframe.
+ * Some museum image hosts (AIC's Cloudflare-fronted IIIF host) block
+ * sandboxed null-origin iframe fetches but allow normal page-context
+ * requests — the plugin main thread runs in the latter. Host-restricted via
+ * IMAGE_FETCH_ALLOWLIST so this can never become an open fetch proxy.
+ */
+async function fetchImageForUi(url: string, requestId: number) {
+  try {
+    const host = new URL(url).hostname
+    if (IMAGE_FETCH_ALLOWLIST.indexOf(host) === -1) {
+      throw new Error(`Host not allowed: ${host}`)
+    }
+    const res = await fetch(url)
+    if (!res.ok) throw new Error(`Image fetch failed: ${res.status}`)
+    const buf = await res.arrayBuffer()
+    figma.ui.postMessage({
+      type: 'fetch-image-result',
+      requestId,
+      bytes: new Uint8Array(buf),
+    })
+  } catch (err) {
+    const message = err instanceof Error ? err.message : 'Image fetch failed'
+    figma.ui.postMessage({ type: 'fetch-image-result', requestId, error: message })
   }
 }
 

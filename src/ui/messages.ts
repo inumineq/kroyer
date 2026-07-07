@@ -36,17 +36,25 @@ export type UiToPluginMessage =
   | { type: 'open-url'; url: string }
   | { type: 'notify'; message: string; error?: boolean }
   | { type: 'close' }
+  | { type: 'fetch-image'; url: string; requestId: number }
 
-export type PluginToUiMessage = {
-  type: 'init'
-  history: string[]
-  /** Legacy pre-v2 raw storage value — migrated on the UI side */
-  collections: unknown
-  /** Versioned envelope from the collections.v2 key, when present */
-  collectionsV2?: unknown
-  /** Last selected provider id, when present */
-  provider?: unknown
-}
+export type PluginToUiMessage =
+  | {
+      type: 'init'
+      history: string[]
+      /** Legacy pre-v2 raw storage value — migrated on the UI side */
+      collections: unknown
+      /** Versioned envelope from the collections.v2 key, when present */
+      collectionsV2?: unknown
+      /** Last selected provider id, when present */
+      provider?: unknown
+    }
+  | {
+      type: 'fetch-image-result'
+      requestId: number
+      bytes?: Uint8Array
+      error?: string
+    }
 
 export function postToPlugin(msg: UiToPluginMessage) {
   parent.postMessage({ pluginMessage: msg }, '*')
