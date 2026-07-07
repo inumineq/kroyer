@@ -14,7 +14,9 @@ import { postToPlugin } from './messages'
 import { fetchImageWithDimensions } from './utils/images'
 import { mapWithConcurrency } from './utils/async'
 import { imageUrlFor } from './images/sizing'
-import { getProvider, DEFAULT_PROVIDER_ID } from './providers/registry'
+import { getProvider, isProviderId, DEFAULT_PROVIDER_ID } from './providers/registry'
+import { ProviderPicker } from './components/ProviderPicker'
+import type { ProviderId } from '../shared/model'
 import { COLLECTIONS_V2_KEY, loadCollections, makeEnvelope } from './storage/migrate'
 import { quotaStatus } from './storage/quota'
 import {
@@ -48,7 +50,8 @@ export function App() {
 
   const [exportingMoodBoard, setExportingMoodBoard] = useState<{ name: string; progress: number; total: number } | null>(null)
 
-  const provider = getProvider(DEFAULT_PROVIDER_ID)
+  const [providerId, setProviderId] = useState<ProviderId>(DEFAULT_PROVIDER_ID)
+  const provider = getProvider(providerId)
   const search = useSearch(provider, query, filters)
   const insert = useInsertImage()
 
@@ -58,6 +61,7 @@ export function App() {
       if (msg?.type === 'init') {
         setHistory(msg.history ?? [])
         setCollections(ensureDefaultCollection(loadCollections(msg.collectionsV2, msg.collections)))
+        if (isProviderId(msg.provider)) setProviderId(msg.provider)
         setInitialized(true)
       }
     }
@@ -95,6 +99,11 @@ export function App() {
   function handleSubmit() {
     if (!query.trim()) return
     setHistory((prev) => updateSearchHistory(prev, query))
+  }
+
+  function handleProviderChange(id: ProviderId) {
+    setProviderId(id)
+    postToPlugin({ type: 'storage-set', key: 'provider', value: id })
   }
 
   function handleInsertFromGrid(work: Artwork) {
@@ -194,6 +203,7 @@ export function App() {
       {tab === 'search' && (
         <>
           <header className="app__header">
+            <ProviderPicker value={providerId} onChange={handleProviderChange} />
             <SearchBar
               value={query}
               onChange={setQuery}
@@ -203,6 +213,7 @@ export function App() {
             <FilterPanel
               filters={filters}
               onChange={setFilters}
+              capabilities={provider.capabilities}
               resultCount={showFilterCount ? search.found : undefined}
             />
           </header>

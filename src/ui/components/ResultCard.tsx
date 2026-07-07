@@ -1,6 +1,7 @@
 import { useState } from 'react'
 import type { Artwork } from '../../shared/model'
 import { hasDisplayableImage, isFreelyUsable } from '../../shared/model'
+import { getProvider } from '../providers/registry'
 
 type Props = {
   work: Artwork
@@ -102,6 +103,7 @@ export function ResultCard({
           {work.title}
         </p>
         <p className="result-card__artist" title={work.artist}>
+          <span className="result-card__provider">{getProvider(work.provider).shortLabel}</span>
           {work.artist}
           {work.dateText && <span className="result-card__year"> · {work.dateText}</span>}
         </p>

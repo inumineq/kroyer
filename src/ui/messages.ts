@@ -44,6 +44,8 @@ export type PluginToUiMessage = {
   collections: unknown
   /** Versioned envelope from the collections.v2 key, when present */
   collectionsV2?: unknown
+  /** Last selected provider id, when present */
+  provider?: unknown
 }
 
 export function postToPlugin(msg: UiToPluginMessage) {

@@ -25,6 +25,7 @@ async function bootstrap() {
   // Legacy pre-v2 key; kept as rollback insurance and migrated UI-side
   const collections = await readStorageKey('collections')
   const collectionsV2 = await readStorageKey('collections.v2')
+  const provider = await readStorageKey('provider')
   const windowSize = await readStorageKey('window-size')
 
   if (
@@ -41,6 +42,7 @@ async function bootstrap() {
     history: Array.isArray(history) ? history : [],
     collections: Array.isArray(collections) ? collections : [],
     collectionsV2,
+    provider,
   })
 }
 

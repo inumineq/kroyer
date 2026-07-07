@@ -1,10 +1,10 @@
 # Krøyer
 
-A Figma plugin for searching and inserting artworks from [Statens Museum for Kunst](https://www.smk.dk/) (SMK), Denmark's National Gallery.
+A Figma plugin for searching and inserting public-domain artworks from major museum open-access collections: [Statens Museum for Kunst](https://www.smk.dk/) (Denmark's National Gallery), the [Art Institute of Chicago](https://www.artic.edu/), the [Cleveland Museum of Art](https://www.clevelandart.org/), and [The Metropolitan Museum of Art](https://www.metmuseum.org/).
 
 Named after [Peder Severin Krøyer](https://en.wikipedia.org/wiki/Peder_Severin_Kr%C3%B8yer) (1851–1909), one of the most beloved Skagen Painters.
 
-Search ~260,000 artworks. Filter by rights — most importantly Public Domain (CC0). Drop images directly into your Figma designs with attribution. Save works into collections, extract color palettes, and generate mood boards.
+Search hundreds of thousands of artworks. Filter by rights — most importantly Public Domain (CC0). Drop images directly into your Figma designs with attribution. Save works into collections, extract color palettes, and generate mood boards.
 
 **Status:** v0.1.0 — feature-complete v1, ready for Figma Community submission. See [ROADMAP.md](./ROADMAP.md) for the analysis and phased plan toward multi-museum support.
 

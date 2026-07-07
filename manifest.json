@@ -11,8 +11,14 @@
       "https://iip.smk.dk",
       "https://iip-thumb.smk.dk",
       "https://similar.api.smk.dk",
-      "https://enrichment.api.smk.dk"
+      "https://enrichment.api.smk.dk",
+      "https://api.artic.edu",
+      "https://www.artic.edu",
+      "https://openaccess-api.clevelandart.org",
+      "https://openaccess-cdn.clevelandart.org",
+      "https://collectionapi.metmuseum.org",
+      "https://images.metmuseum.org"
     ],
-    "reasoning": "Loads artwork data and images from Statens Museum for Kunst's public API."
+    "reasoning": "Loads artwork data and images from the public open-access APIs of Statens Museum for Kunst, the Art Institute of Chicago, the Cleveland Museum of Art, and The Metropolitan Museum of Art."
   }
 }

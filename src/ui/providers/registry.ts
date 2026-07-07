@@ -1,12 +1,22 @@
 import type { ProviderId } from '../../shared/model'
 import type { ArtProvider } from './types'
 import { smkProvider } from './smk/provider'
+import { aicProvider } from './aic/provider'
+import { cmaProvider } from './cma/provider'
+import { metProvider } from './met/provider'
 
-const PROVIDERS: Partial<Record<ProviderId, ArtProvider>> = {
+const PROVIDERS: Record<ProviderId, ArtProvider> = {
   smk: smkProvider,
+  aic: aicProvider,
+  cma: cmaProvider,
+  met: metProvider,
 }
 
 export const DEFAULT_PROVIDER_ID: ProviderId = 'smk'
+
+export function isProviderId(value: unknown): value is ProviderId {
+  return typeof value === 'string' && value in PROVIDERS
+}
 
 export function getProvider(id: ProviderId): ArtProvider {
   return PROVIDERS[id] ?? smkProvider
