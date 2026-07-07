@@ -27,7 +27,10 @@ export function ResultCard({
 
   const insertable = hasDisplayableImage(work)
   const image = useArtworkImage(work, 'thumbnail')
-  const blocked = image.status === 'error'
+  // Distinguish "genuinely no image" from "fetch blocked" (AIC/Cloudflare) —
+  // hasDisplayableImage means a URL exists, so an error status here means the
+  // main-thread fetch failed rather than the work simply lacking an image.
+  const blocked = image.status === 'error' && hasDisplayableImage(work)
 
   function handleDragStart(e: React.DragEvent<HTMLImageElement>) {
     e.dataTransfer.setData('text/plain', work.key)
