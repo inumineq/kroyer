@@ -88,6 +88,11 @@ export async function loadImageWithDimensions(
   maxPx: number = FIGMA_MAX_IMAGE_PX,
 ): Promise<FetchedImage> {
   const provider = getProvider(work.provider)
+  if (provider.imageLoading === 'blocked') {
+    // Callers gate on the flag before fetching; enforce it so a future
+    // caller gets a clear error instead of a doomed iframe fetch.
+    throw new Error(`${provider.shortLabel} image bytes are blocked upstream`)
+  }
   const blob =
     provider.imageLoading === 'main-thread'
       ? // See imageCache.ts for why the BlobPart cast is needed here.

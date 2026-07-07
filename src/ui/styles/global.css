@@ -430,7 +430,8 @@ input {
   font-size: 10px;
   line-height: 1.4;
   color: var(--fg-tertiary);
-  background: var(--bg-secondary);
+  /* Scrim, not opaque: the lqip blur must stay visible behind the label. */
+  background: color-mix(in srgb, var(--bg-secondary) 62%, transparent);
   border: none;
   cursor: pointer;
 }
