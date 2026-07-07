@@ -112,6 +112,7 @@ export const smkProvider: ArtProvider = {
     maxPageSize: 100,
   },
   domains: ['api.smk.dk', 'iip-thumb.smk.dk', 'iip.smk.dk', 'similar.api.smk.dk'],
+  imageLoading: 'iframe',
   search,
   getSimilar,
 }

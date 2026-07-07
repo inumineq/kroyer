@@ -64,5 +64,6 @@ export const cmaProvider: ArtProvider = {
     maxPageSize: 100,
   },
   domains: ['openaccess-api.clevelandart.org', 'openaccess-cdn.clevelandart.org'],
+  imageLoading: 'iframe',
   search,
 }

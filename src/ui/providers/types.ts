@@ -42,6 +42,13 @@ export interface ArtProvider {
   readonly capabilities: ProviderCapabilities
   /** Hosts this provider fetches from; must all appear in manifest.json networkAccess */
   readonly domains: string[]
+  /**
+   * How image bytes are fetched for this provider's works. 'iframe' is the
+   * default direct `<img>` / UI-side fetch(); 'main-thread' routes bytes
+   * through the plugin controller for hosts that block sandboxed iframe
+   * requests (see AIC — Cloudflare managed challenge on www.artic.edu).
+   */
+  readonly imageLoading: 'iframe' | 'main-thread'
   search(query: SearchQuery, signal: AbortSignal): Promise<SearchPage>
   getSimilar?(work: Artwork, signal?: AbortSignal): Promise<Artwork[]>
 }

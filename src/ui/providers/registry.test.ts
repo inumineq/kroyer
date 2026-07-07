@@ -25,4 +25,14 @@ describe('getProvider', () => {
       expect(getProvider(p.id).capabilities).toBeDefined()
     }
   })
+
+  it('declares an imageLoading strategy for every registered provider', () => {
+    for (const p of listProviders()) {
+      expect(['iframe', 'main-thread']).toContain(getProvider(p.id).imageLoading)
+    }
+  })
+
+  it('routes AIC image bytes through the main thread', () => {
+    expect(getProvider('aic').imageLoading).toBe('main-thread')
+  })
 })

@@ -11,6 +11,8 @@ const NATIVE_PX = 1686
 export function aicToArtwork(raw: AicArtwork): Artwork {
   const id = String(raw.id)
   const iiifBase = raw.image_id ? `${IIIF_URL}/${raw.image_id}` : undefined
+  const lqip = raw.thumbnail?.lqip ?? undefined
+  const altText = raw.thumbnail?.alt_text ?? undefined
 
   const extra: Record<string, string> = {}
   if (raw.artwork_type_title) extra['Type'] = raw.artwork_type_title
@@ -40,6 +42,10 @@ export function aicToArtwork(raw: AicArtwork): Artwork {
           iiifBase,
           // Intentionally no width/height: the native-size IIIF clamp in
           // imageUrlFor must not request beyond AIC's documented sizes.
+          // lqip/altText are optional — pre-fix collection snapshots and
+          // items AIC didn't index a thumbnail block for leave them undefined.
+          lqip,
+          altText,
         }
       : {},
     extra,

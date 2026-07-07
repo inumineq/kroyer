@@ -14,6 +14,7 @@ const FIELDS = [
   'date_end',
   'is_public_domain',
   'image_id',
+  'thumbnail',
   'medium_display',
   'credit_line',
   'department_title',
@@ -64,5 +65,9 @@ export const aicProvider: ArtProvider = {
     maxPageSize: 100,
   },
   domains: ['api.artic.edu', 'www.artic.edu'],
+  // www.artic.edu sits behind a Cloudflare managed challenge that blocks
+  // sandboxed null-origin iframe fetches (the plugin UI) but allows normal
+  // page-context requests — route image bytes through the plugin main thread.
+  imageLoading: 'main-thread',
   search,
 }

@@ -101,5 +101,6 @@ export const metProvider: ArtProvider = {
     maxPageSize: 50,
   },
   domains: ['collectionapi.metmuseum.org', 'images.metmuseum.org'],
+  imageLoading: 'iframe',
   search,
 }
