@@ -47,7 +47,9 @@ export async function getCachedImageUrl(url: string, signal?: AbortSignal): Prom
 
   const promise = fetchImageViaPlugin(url, signal)
     .then((bytes) => {
-      const objectUrl = URL.createObjectURL(new Blob([bytes]))
+      // TS's DOM lib types BlobPart as requiring an ArrayBuffer-backed view;
+      // postMessage-transferred Uint8Arrays are typed against ArrayBufferLike.
+      const objectUrl = URL.createObjectURL(new Blob([bytes as BlobPart]))
       cache.set(url, objectUrl)
       evictIfNeeded()
       return objectUrl

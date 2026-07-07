@@ -11,7 +11,7 @@ import { ResizeHandle } from './components/ResizeHandle'
 import { useSearch } from './hooks/useSearch'
 import { useInsertImage } from './hooks/useInsertImage'
 import { postToPlugin } from './messages'
-import { fetchImageWithDimensions } from './utils/images'
+import { loadImageWithDimensions } from './utils/images'
 import { mapWithConcurrency } from './utils/async'
 import { imageUrlFor } from './images/sizing'
 import { getProvider, isProviderId, DEFAULT_PROVIDER_ID } from './providers/registry'
@@ -166,7 +166,7 @@ export function App() {
       async (work) => {
         const url = imageUrlFor(work, 'medium')
         if (!url) throw new Error('no image')
-        const { bytes, width, height } = await fetchImageWithDimensions(url)
+        const { bytes, width, height } = await loadImageWithDimensions(work, url)
         return {
           imageBytes: bytes,
           width,

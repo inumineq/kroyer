@@ -1,4 +1,7 @@
+import type { Artwork } from '../../shared/model'
 import { FIGMA_MAX_IMAGE_PX } from '../images/sizing'
+import { fetchImageViaPlugin } from '../images/pluginFetch'
+import { getProvider } from '../providers/registry'
 
 export type FetchedImage = {
   bytes: Uint8Array
@@ -28,24 +31,20 @@ function canvasToBytes(canvas: HTMLCanvasElement, mimeType: string): Promise<Uin
   })
 }
 
-export async function fetchImageWithDimensions(
-  url: string,
-  maxPx: number = FIGMA_MAX_IMAGE_PX,
-): Promise<FetchedImage> {
-  const response = await fetch(url)
-  if (!response.ok) throw new Error(`Image fetch failed: ${response.status}`)
-
-  const blob = await response.blob()
+/**
+ * Decodes `blob`, downscaling via canvas if it exceeds `maxPx` on either
+ * side. figma.createImage throws above 4096px per side; IIIF providers are
+ * clamped at the URL level, so this canvas downscale mainly covers
+ * fixed-URL providers and honors smaller requested insert sizes. The canvas
+ * decode/downscale stays in the UI — the plugin main thread has no canvas.
+ */
+async function decodeAndDownscale(blob: Blob, maxPx: number): Promise<FetchedImage> {
   const objectUrl = URL.createObjectURL(blob)
-
   try {
     const img = await decodeImage(objectUrl)
     const width = img.naturalWidth
     const height = img.naturalHeight
 
-    // figma.createImage throws above 4096px per side. IIIF providers are
-    // clamped at the URL level; this canvas downscale covers fixed-URL
-    // providers and honors smaller requested insert sizes.
     const limit = Math.min(maxPx, FIGMA_MAX_IMAGE_PX)
     if (width > limit || height > limit) {
       const scale = limit / Math.max(width, height)
@@ -66,4 +65,33 @@ export async function fetchImageWithDimensions(
   } finally {
     URL.revokeObjectURL(objectUrl)
   }
+}
+
+/** Fetches `url` directly from the UI iframe — the default transport. */
+async function fetchViaIframe(url: string): Promise<Blob> {
+  const response = await fetch(url)
+  if (!response.ok) throw new Error(`Image fetch failed: ${response.status}`)
+  return response.blob()
+}
+
+/**
+ * Fetches image bytes for `url` and decodes/downscales them, choosing
+ * transport by the work's provider: iframe providers fetch directly (as
+ * before), main-thread providers (AIC) route through the plugin controller
+ * since their image host blocks sandboxed iframe fetches. Bytes cross
+ * postMessage twice for AIC inserts (plugin -> UI -> plugin) — a few
+ * hundred KB, acceptable to keep a single code path.
+ */
+export async function loadImageWithDimensions(
+  work: Artwork,
+  url: string,
+  maxPx: number = FIGMA_MAX_IMAGE_PX,
+): Promise<FetchedImage> {
+  const provider = getProvider(work.provider)
+  const blob =
+    provider.imageLoading === 'main-thread'
+      ? // See imageCache.ts for why the BlobPart cast is needed here.
+        new Blob([(await fetchImageViaPlugin(url)) as BlobPart])
+      : await fetchViaIframe(url)
+  return decodeAndDownscale(blob, maxPx)
 }

@@ -1,7 +1,7 @@
 import { useCallback, useState } from 'react'
 import type { Artwork } from '../../shared/model'
 import { FIGMA_MAX_IMAGE_PX, imageUrlFor, SIZE_PIXELS } from '../images/sizing'
-import { fetchImageWithDimensions } from '../utils/images'
+import { loadImageWithDimensions } from '../utils/images'
 import { postToPlugin, type Caption } from '../messages'
 import type { InsertSize } from '../types'
 
@@ -40,7 +40,7 @@ export function useInsertImage() {
         // Downscale to the requested size when the URL couldn't honor it
         // (fixed-URL providers serving native images for 'large')
         const maxPx = options.size === 'native' ? FIGMA_MAX_IMAGE_PX : SIZE_PIXELS[options.size]
-        const { bytes, width, height } = await fetchImageWithDimensions(url, maxPx)
+        const { bytes, width, height } = await loadImageWithDimensions(work, url, maxPx)
         postToPlugin({
           type: 'insert-image',
           imageBytes: bytes,

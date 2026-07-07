@@ -57,7 +57,6 @@ export function useArtworkImage(work: Artwork, size: ImageSize): ArtworkImageSta
       })
 
     return () => controller.abort()
-    // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [url, iframeProvider, work.image.lqip])
 
   return state

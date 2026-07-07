@@ -3,6 +3,7 @@ import type { Artwork } from '../../shared/model'
 import { hasDisplayableImage } from '../../shared/model'
 import { extractPalette, rgbToHex, type PaletteColor } from '../utils/palette'
 import { imageUrlFor } from '../images/sizing'
+import { getCachedImageUrl } from '../images/imageCache'
 import { getProvider } from '../providers/registry'
 import { postToPlugin } from '../messages'
 
@@ -22,7 +23,12 @@ export function PaletteSection({ work }: Props) {
     setLoading(true)
     setError(null)
     try {
-      const palette = await extractPalette(url, 6)
+      // Main-thread providers (AIC) can't be fetched directly by the iframe
+      // — resolve the cached blob: URL first so the <img> extractPalette
+      // loads is same-origin and the canvas stays untainted.
+      const provider = getProvider(work.provider)
+      const sourceUrl = provider.imageLoading === 'main-thread' ? await getCachedImageUrl(url) : url
+      const palette = await extractPalette(sourceUrl, 6)
       setColors(palette)
     } catch (e) {
       setError(e instanceof Error ? e.message : 'Extraction failed')
