@@ -1,6 +1,7 @@
 import { useEffect, useState } from 'react'
 import type { Artwork } from '../../shared/model'
 import { getProvider } from '../providers/registry'
+import { useArtworkImage } from '../images/useArtworkImage'
 
 type Props = {
   work: Artwork
@@ -58,18 +59,25 @@ export function RelatedWorks({ work, onSelect }: Props) {
       ) : (
         <div className="related__scroll">
           {related.map((r) => (
-            <button
-              key={r.key}
-              type="button"
-              className="related__item"
-              onClick={() => onSelect(r)}
-              title={`${r.title} — ${r.artist}`}
-            >
-              <img src={r.image.thumbnailUrl} alt="" loading="lazy" />
-            </button>
+            <RelatedWorkItem key={r.key} work={r} onSelect={() => onSelect(r)} />
           ))}
         </div>
       )}
     </div>
+  )
+}
+
+function RelatedWorkItem({ work, onSelect }: { work: Artwork; onSelect: () => void }) {
+  const image = useArtworkImage(work, 'thumbnail')
+  const src = image.src ?? image.lqip
+  return (
+    <button
+      type="button"
+      className="related__item"
+      onClick={onSelect}
+      title={`${work.title} — ${work.artist}`}
+    >
+      {src && <img src={src} alt="" loading="lazy" />}
+    </button>
   )
 }

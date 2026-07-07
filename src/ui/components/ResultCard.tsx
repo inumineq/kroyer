@@ -2,6 +2,8 @@ import { useState } from 'react'
 import type { Artwork } from '../../shared/model'
 import { hasDisplayableImage, RIGHTS_DISPLAY } from '../../shared/model'
 import { getProvider } from '../providers/registry'
+import { useArtworkImage } from '../images/useArtworkImage'
+import { postToPlugin } from '../messages'
 
 type Props = {
   work: Artwork
@@ -24,6 +26,8 @@ export function ResultCard({
   const [imageError, setImageError] = useState(false)
 
   const insertable = hasDisplayableImage(work)
+  const image = useArtworkImage(work, 'thumbnail')
+  const blocked = image.status === 'error'
 
   function handleDragStart(e: React.DragEvent<HTMLImageElement>) {
     e.dataTransfer.setData('text/plain', work.key)
@@ -45,10 +49,15 @@ export function ResultCard({
         aria-label={`Open details for ${work.title} by ${work.artist}`}
       >
         <div className="result-card__image-wrap">
-          {!loaded && !imageError && <div className="result-card__skeleton" aria-hidden="true" />}
-          {work.image.thumbnailUrl && !imageError ? (
+          {!loaded && !imageError && image.lqip && (
+            <img src={image.lqip} alt="" className="result-card__lqip" aria-hidden="true" />
+          )}
+          {!loaded && !imageError && !image.lqip && (
+            <div className="result-card__skeleton" aria-hidden="true" />
+          )}
+          {image.src && !imageError && !blocked ? (
             <img
-              src={work.image.thumbnailUrl}
+              src={image.src}
               alt=""
               className="result-card__image"
               loading="lazy"
@@ -59,6 +68,17 @@ export function ResultCard({
               onDragStart={handleDragStart}
               onDragEnd={handleDragEnd}
             />
+          ) : blocked ? (
+            <button
+              type="button"
+              className="result-card__blocked"
+              onClick={(e) => {
+                e.stopPropagation()
+                if (work.sourceUrl) postToPlugin({ type: 'open-url', url: work.sourceUrl })
+              }}
+            >
+              Preview blocked — open on {getProvider(work.provider).shortLabel.toLowerCase()}
+            </button>
           ) : (
             <div className="result-card__no-image" aria-hidden="true">
               No image
