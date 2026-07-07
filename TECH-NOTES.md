@@ -41,7 +41,10 @@ link, and IIIF image/service URLs in a single document. Images come from
 requests openly — CORS `*`, no Cloudflare challenge (unlike AIC) — so the
 provider uses the default `imageLoading: 'iframe'`. V1 caps each query's
 reachable universe at the first page (100 ids) per stream; `pageToken`
-continuation is the documented later extension.
+continuation is the documented later extension. The search endpoint has no
+rights param (unknown params 400), so the "Public domain only" filter runs
+client-side, post-hydration, filling pages progressively as batches of the
+ID universe are hydrated and checked against `rights`.
 
 Validated against live API on 2026-05-18. All four critical assumptions from the original plan resolved during Phase 0; remaining items have been confirmed during Phase 1-4 implementation.
 

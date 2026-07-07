@@ -1,5 +1,5 @@
 import { describe, expect, it } from 'vitest'
-import { buildStreamParams, mergeIdStreams } from './provider'
+import { buildStreamParams, mergeIdStreams, needsMoreForPage } from './provider'
 
 describe('mergeIdStreams', () => {
   it('preserves stream order: first stream first, then later streams', () => {
@@ -53,5 +53,23 @@ describe('buildStreamParams', () => {
     expect(strings(buildStreamParams('', 'Rembrandt'))).toEqual([
       'creator=Rembrandt&imageAvailable=true',
     ])
+  })
+})
+
+describe('needsMoreForPage', () => {
+  it('mid-universe: keeps hydrating when the page is short and ids remain', () => {
+    expect(needsMoreForPage(5, 20, 100, 0, 10)).toBe(true)
+  })
+
+  it('universe-exhausted: stops once every id has been tried, even if the page is short', () => {
+    expect(needsMoreForPage(5, 100, 100, 0, 10)).toBe(false)
+  })
+
+  it('exact-boundary: stops as soon as collected works exactly fill the page', () => {
+    expect(needsMoreForPage(10, 50, 100, 0, 10)).toBe(false)
+  })
+
+  it('out-of-range page: never spins forever once the universe runs dry', () => {
+    expect(needsMoreForPage(50, 50, 50, 1000, 10)).toBe(false)
   })
 })
