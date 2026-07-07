@@ -1,5 +1,29 @@
 # Tech Notes — SMK API findings
 
+## AIC images — permanently blocked, verified 2026-07-07
+
+The Art Institute of Chicago's image host (`www.artic.edu`) sits behind a
+Cloudflare **managed challenge** that returns 403 for every sandboxed/
+null-origin context the plugin can route bytes through: the UI iframe
+(`sandbox="allow-scripts"`, `fetch()` from origin `'null'`), the plugin
+**main-thread** `fetch()` sandbox (also origin `'null'` in Figma's
+implementation — confirmed by live probe, not just the iframe case), and
+`figma.createImageAsync()`, which itself proxies through
+`https://cors-image-proxy.figma.com` and is 403'd there too. There is no
+viable byte route for AIC images from within a Figma plugin. AIC search and
+metadata are unaffected — only image bytes are blocked. Per the pre-planned
+Step 9 fallback: AIC works stay searchable, images render as their inline
+`lqip` placeholder with a permanent "Preview unavailable" state and an
+"Open on artic.edu" link (`open-url`), and byte-consuming features (insert,
+palette extraction, mood-board export) are disabled/skipped for AIC works
+specifically, with honest skip counts reported via the existing notify
+mechanism. The switch is `imageLoading: 'blocked'` on `aicProvider` in
+`src/ui/providers/aic/provider.ts` — flipping it back to `'main-thread'` is
+a one-word change if AIC's Cloudflare rule is ever relaxed; the main-thread
+fetch machinery (`pluginFetch.ts`, `imageCache.ts`, the plugin controller's
+`fetch-image` handler, and the `'main-thread'` code path in
+`useArtworkImage.ts`) is kept intact and under test for that day.
+
 Validated against live API on 2026-05-18. All four critical assumptions from the original plan resolved during Phase 0; remaining items have been confirmed during Phase 1-4 implementation.
 
 ## 1. CORS — open ✅

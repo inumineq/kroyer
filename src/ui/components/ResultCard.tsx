@@ -25,11 +25,14 @@ export function ResultCard({
   const [loaded, setLoaded] = useState(false)
   const [imageError, setImageError] = useState(false)
 
-  const insertable = hasDisplayableImage(work)
+  const provider = getProvider(work.provider)
+  const imageBlockedProvider = provider.imageLoading === 'blocked'
+  const insertable = hasDisplayableImage(work) && !imageBlockedProvider
   const image = useArtworkImage(work, 'thumbnail')
-  // Distinguish "genuinely no image" from "fetch blocked" (AIC/Cloudflare) —
-  // hasDisplayableImage means a URL exists, so an error status here means the
-  // main-thread fetch failed rather than the work simply lacking an image.
+  // Distinguish "genuinely no image" from "preview unavailable" (AIC/
+  // Cloudflare, or any main-thread fetch failure) — hasDisplayableImage
+  // means a URL exists, so an error status here means the fetch was blocked
+  // or failed rather than the work simply lacking an image.
   const blocked = image.status === 'error' && hasDisplayableImage(work)
 
   function handleDragStart(e: React.DragEvent<HTMLImageElement>) {
@@ -80,7 +83,7 @@ export function ResultCard({
                 if (work.sourceUrl) postToPlugin({ type: 'open-url', url: work.sourceUrl })
               }}
             >
-              Preview blocked — open on {getProvider(work.provider).shortLabel.toLowerCase()}
+              Preview unavailable — open on {provider.shortLabel.toLowerCase()}
             </button>
           ) : (
             <div className="result-card__no-image" aria-hidden="true">
@@ -103,6 +106,7 @@ export function ResultCard({
                 onInsert()
               }}
               disabled={inserting || !insertable}
+              title={imageBlockedProvider ? `Insert unavailable — ${provider.shortLabel} preview is blocked` : undefined}
             >
               {inserting ? 'Inserting…' : 'Insert'}
             </button>
@@ -130,7 +134,7 @@ export function ResultCard({
           {work.title}
         </p>
         <p className="result-card__artist" title={work.artist}>
-          <span className="result-card__provider">{getProvider(work.provider).shortLabel}</span>
+          <span className="result-card__provider">{provider.shortLabel}</span>
           {work.artist}
           {work.dateText && <span className="result-card__year"> · {work.dateText}</span>}
         </p>

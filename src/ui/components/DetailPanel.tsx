@@ -41,11 +41,14 @@ export function DetailPanel({
   useEscapeKey(onClose)
 
   const provider = getProvider(work.provider)
+  const imageBlockedProvider = provider.imageLoading === 'blocked'
   const image = useArtworkImage(work, 'medium')
-  // Distinguish "genuinely no image" from "fetch blocked" (AIC/Cloudflare) —
-  // hasDisplayableImage means a URL exists, so an error status here means the
-  // main-thread fetch failed rather than the work simply lacking an image.
+  // Distinguish "genuinely no image" from "preview unavailable" (AIC/
+  // Cloudflare, or any main-thread fetch failure) — hasDisplayableImage
+  // means a URL exists, so an error status here means the fetch was blocked
+  // or failed rather than the work simply lacking an image.
   const blocked = image.status === 'error' && hasDisplayableImage(work)
+  const insertable = hasDisplayableImage(work) && !imageBlockedProvider
   const freelyUsable = isFreelyUsable(work.rights)
   const paragraphs = work.description?.split('\n\n') ?? []
 
@@ -88,7 +91,7 @@ export function DetailPanel({
               {image.lqip && (
                 <img src={image.lqip} alt="" className="detail-panel__lqip" aria-hidden="true" />
               )}
-              <p>Preview blocked</p>
+              <p>Preview unavailable</p>
               {work.sourceUrl && (
                 <button
                   type="button"
@@ -200,7 +203,8 @@ export function DetailPanel({
           type="button"
           className="detail-panel__insert"
           onClick={() => onInsert(size, withCaption)}
-          disabled={inserting || !hasDisplayableImage(work)}
+          disabled={inserting || !insertable}
+          title={imageBlockedProvider ? `Insert unavailable — ${provider.shortLabel} preview is blocked` : undefined}
         >
           {inserting ? 'Inserting…' : 'Insert into Figma'}
         </button>

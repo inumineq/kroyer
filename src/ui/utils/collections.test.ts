@@ -1,26 +1,27 @@
 import { describe, expect, it } from 'vitest'
-import type { Artwork } from '../../shared/model'
+import type { Artwork, ProviderId } from '../../shared/model'
 import {
   deleteCollection,
   ensureDefaultCollection,
   favoriteIdsFor,
   makeCollection,
+  planMoodBoardExport,
   removeWorkFrom,
   renameCollection,
   toggleWorkIn,
   updateSearchHistory,
 } from './collections'
 
-function work(id: string): Artwork {
+function work(id: string, provider: ProviderId = 'smk', image: Artwork['image'] = {}): Artwork {
   return {
     v: 1,
-    provider: 'smk',
+    provider,
     id,
-    key: `smk:${id}`,
+    key: `${provider}:${id}`,
     title: 'T',
     artist: 'A',
     rights: 'cc0',
-    image: {},
+    image,
   }
 }
 
@@ -100,5 +101,43 @@ describe('rename/delete collection', () => {
   it('deletes by id', () => {
     const col = makeCollection('Gone')
     expect(deleteCollection([col], col.id)).toEqual([])
+  })
+})
+
+// Uses the real provider registry: SMK is an iframe provider, AIC is
+// 'blocked' (Cloudflare 403s every byte route — see providers/types.ts), so
+// AIC works must be skipped before any fetch attempt and honestly counted.
+describe('planMoodBoardExport', () => {
+  const image = { thumbnailUrl: 'https://example.test/t.jpg' }
+
+  it('keeps fetchable works and skips blocked-provider works with an honest count', () => {
+    const plan = planMoodBoardExport([
+      work('1', 'smk', image),
+      work('2', 'aic', image),
+      work('3', 'smk', image),
+      work('4', 'aic', image),
+    ])
+    expect(plan.eligible.map((w) => w.key)).toEqual(['smk:1', 'smk:3'])
+    expect(plan.blockedCount).toBe(2)
+    expect(plan.skipMessage).toBe('Skipped 2 artworks (AIC images are blocked)')
+  })
+
+  it('uses singular wording for a single skipped work', () => {
+    const plan = planMoodBoardExport([work('1', 'smk', image), work('2', 'aic', image)])
+    expect(plan.skipMessage).toBe('Skipped 1 artwork (AIC images are blocked)')
+  })
+
+  it('does not count image-less works as blocked skips', () => {
+    const plan = planMoodBoardExport([work('1', 'smk'), work('2', 'aic')])
+    expect(plan.eligible).toEqual([])
+    expect(plan.blockedCount).toBe(0)
+    expect(plan.skipMessage).toBeUndefined()
+  })
+
+  it('reports no skip message when nothing is blocked', () => {
+    const plan = planMoodBoardExport([work('1', 'smk', image)])
+    expect(plan.eligible).toHaveLength(1)
+    expect(plan.blockedCount).toBe(0)
+    expect(plan.skipMessage).toBeUndefined()
   })
 })

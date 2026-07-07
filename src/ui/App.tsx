@@ -26,7 +26,7 @@ import {
   type Tab,
   type Collection,
 } from './types'
-import { hasDisplayableImage, type Artwork } from '../shared/model'
+import type { Artwork } from '../shared/model'
 import { STORAGE_KEYS } from '../shared/storageKeys'
 import type { QuotaStatus } from './storage/quota'
 import {
@@ -36,6 +36,7 @@ import {
   removeWorkFrom,
   updateSearchHistory,
   makeCollection,
+  planMoodBoardExport,
   renameCollection,
   deleteCollection,
 } from './utils/collections'
@@ -152,10 +153,24 @@ export function App() {
   }
 
   async function handleExportMoodBoard(collection: Collection) {
-    const eligible = collection.works.filter(hasDisplayableImage)
+    // Blocked providers (AIC) have no viable byte route — skip their works
+    // before ever attempting a fetch that's guaranteed to fail, and report
+    // an honest count instead of silently dropping them.
+    const { eligible, skipMessage } = planMoodBoardExport(collection.works)
+
     if (eligible.length === 0) {
-      postToPlugin({ type: 'notify', message: 'No images in this collection to export', error: true })
+      postToPlugin({
+        type: 'notify',
+        message: skipMessage
+          ? `${skipMessage} — no images left to export`
+          : 'No images in this collection to export',
+        error: true,
+      })
       return
+    }
+
+    if (skipMessage) {
+      postToPlugin({ type: 'notify', message: skipMessage })
     }
 
     setExportingMoodBoard({ name: collection.name, progress: 0, total: eligible.length })

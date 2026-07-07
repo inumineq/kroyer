@@ -3,6 +3,7 @@ import type { Artwork } from '../../shared/model'
 import { FIGMA_MAX_IMAGE_PX, imageUrlFor, SIZE_PIXELS } from '../images/sizing'
 import { loadImageWithDimensions } from '../utils/images'
 import { postToPlugin, type Caption } from '../messages'
+import { getProvider } from '../providers/registry'
 import type { InsertSize } from '../types'
 
 function buildLayerName(work: Artwork): string {
@@ -28,6 +29,12 @@ export function useInsertImage() {
 
   const insertArtwork = useCallback(
     async (work: Artwork, options: InsertOptions) => {
+      const provider = getProvider(work.provider)
+      if (provider.imageLoading === 'blocked') {
+        setInsertError(`Insert unavailable — ${provider.shortLabel} preview is blocked`)
+        return
+      }
+
       const url = imageUrlFor(work, options.size)
       if (!url) {
         setInsertError('No image available for this artwork')

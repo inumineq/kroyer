@@ -30,24 +30,36 @@ export function iframeImageUrlFor(work: Artwork, size: ImageSize): string | unde
  * Resolves the image to render for `work` at `size`, choosing transport by
  * the work's provider. Iframe providers (SMK/Met/CMA) are zero-behavior-
  * change: this just returns iframeImageUrlFor() directly, ready immediately.
- * Main-thread providers (AIC) fetch through the plugin controller and cache
- * the result as a blob: URL, exposing lqip immediately so the grid isn't
- * empty while that fetch is in flight.
+ * Main-thread providers fetch through the plugin controller and cache the
+ * result as a blob: URL, exposing lqip immediately so the grid isn't empty
+ * while that fetch is in flight. Blocked providers (AIC — see
+ * providers/types.ts) never fire a request that's guaranteed to 403: they
+ * resolve straight to lqip + status 'error', the same terminal state a
+ * failed main-thread fetch would reach, so ResultCard/DetailPanel's existing
+ * `status === 'error' && hasDisplayableImage(work)` "blocked" gate covers
+ * both without change.
  */
 export function useArtworkImage(work: Artwork, size: ImageSize): ArtworkImageState {
   const provider = getProvider(work.provider)
-  const iframeProvider = provider.imageLoading !== 'main-thread'
+  const iframeProvider = provider.imageLoading === 'iframe'
+  const blockedProvider = provider.imageLoading === 'blocked'
   const url = iframeProvider ? iframeImageUrlFor(work, size) : imageUrlFor(work, size)
 
-  const [state, setState] = useState<ArtworkImageState>(() =>
-    iframeProvider
-      ? { src: url, status: url ? 'ready' : 'error' }
-      : { lqip: work.image.lqip, status: url ? 'loading' : 'error' },
-  )
+  const [state, setState] = useState<ArtworkImageState>(() => {
+    if (iframeProvider) return { src: url, status: url ? 'ready' : 'error' }
+    if (blockedProvider) return { lqip: work.image.lqip, status: 'error' }
+    return { lqip: work.image.lqip, status: url ? 'loading' : 'error' }
+  })
 
   useEffect(() => {
     if (iframeProvider) {
       setState({ src: url, status: url ? 'ready' : 'error' })
+      return
+    }
+
+    // No viable byte route — don't fire a fetch that's guaranteed to 403.
+    if (blockedProvider) {
+      setState({ lqip: work.image.lqip, status: 'error' })
       return
     }
 
@@ -70,7 +82,7 @@ export function useArtworkImage(work: Artwork, size: ImageSize): ArtworkImageSta
       })
 
     return () => controller.abort()
-  }, [url, iframeProvider, work.image.lqip])
+  }, [url, iframeProvider, blockedProvider, work.image.lqip])
 
   return state
 }
