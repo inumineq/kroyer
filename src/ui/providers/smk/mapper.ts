@@ -44,7 +44,9 @@ export function smkToArtwork(raw: SmkArtwork): Artwork {
     creditLine: raw.credit_line?.[0],
     medium: raw.techniques?.filter(Boolean).join(', ') || undefined,
     description: raw.notes?.filter(Boolean).join('\n\n') || undefined,
-    sourceUrl: raw.frontend_url,
+    // frontend_url can't be requested via fields= (the API 500s expanding it
+    // to frontend_url_da), so derive it from the object number when absent.
+    sourceUrl: raw.frontend_url ?? `https://open.smk.dk/artwork/image/${id}`,
     image: {
       thumbnailUrl: raw.image_thumbnail,
       nativeUrl: raw.image_native,

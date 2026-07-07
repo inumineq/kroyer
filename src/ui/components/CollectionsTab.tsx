@@ -2,6 +2,7 @@ import { useState } from 'react'
 import type { Artwork, Collection } from '../../shared/model'
 import { ResultGrid } from './ResultGrid'
 import { StateMessage } from './StateMessage'
+import { useArtworkImage } from '../images/useArtworkImage'
 
 type Props = {
   collections: Collection[]
@@ -90,6 +91,16 @@ export function CollectionsTab(props: Props) {
   )
 }
 
+function CollectionItemThumb({ work }: { work: Artwork }) {
+  const image = useArtworkImage(work, 'thumbnail')
+  const src = image.src ?? image.lqip
+  return (
+    <div className="collection-item__thumb">
+      {src && <img src={src} alt="" loading="lazy" />}
+    </div>
+  )
+}
+
 type CollectionListItemProps = {
   collection: Collection
   isDefault: boolean
@@ -107,13 +118,7 @@ function CollectionListItem({ collection, isDefault, onOpen }: CollectionListIte
               ∅
             </div>
           ) : (
-            preview.map((w) => (
-              <div key={w.key} className="collection-item__thumb">
-                {w.image.thumbnailUrl && (
-                  <img src={w.image.thumbnailUrl} alt="" loading="lazy" />
-                )}
-              </div>
-            ))
+            preview.map((w) => <CollectionItemThumb key={w.key} work={w} />)
           )}
         </div>
         <div className="collection-item__meta">

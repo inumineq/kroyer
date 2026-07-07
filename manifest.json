@@ -17,8 +17,10 @@
       "https://openaccess-api.clevelandart.org",
       "https://openaccess-cdn.clevelandart.org",
       "https://collectionapi.metmuseum.org",
-      "https://images.metmuseum.org"
+      "https://images.metmuseum.org",
+      "https://data.rijksmuseum.nl",
+      "https://iiif.micr.io"
     ],
-    "reasoning": "Loads artwork data and images from the public open-access APIs of Statens Museum for Kunst, the Art Institute of Chicago, the Cleveland Museum of Art, and The Metropolitan Museum of Art."
+    "reasoning": "Loads artwork data and images from the public open-access APIs of Statens Museum for Kunst, the Art Institute of Chicago, the Cleveland Museum of Art, The Metropolitan Museum of Art, and the Rijksmuseum."
   }
 }

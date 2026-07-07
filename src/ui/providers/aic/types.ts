@@ -13,6 +13,13 @@ export type AicArtwork = {
   credit_line?: string | null
   department_title?: string | null
   artwork_type_title?: string | null
+  /** Inline low-quality placeholder + accessibility text for the main image */
+  thumbnail?: {
+    lqip?: string | null
+    alt_text?: string | null
+    width?: number | null
+    height?: number | null
+  } | null
 }
 
 export type AicSearchResponse = {

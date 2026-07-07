@@ -6,7 +6,7 @@
  * collections, messages — works only with this shape.
  */
 
-export type ProviderId = 'smk' | 'aic' | 'cma' | 'met'
+export type ProviderId = 'smk' | 'aic' | 'cma' | 'met' | 'rijks'
 
 export type Rights = 'public-domain' | 'cc0' | 'cc-by' | 'copyrighted' | 'unknown'
 
@@ -20,6 +20,10 @@ export type ArtworkImage = {
   /** Native pixel dimensions when the API reports them */
   width?: number
   height?: number
+  /** Inline low-quality placeholder (data URI) shown while the real image loads */
+  lqip?: string
+  /** Accessibility description of the image, when the provider supplies one */
+  altText?: string
 }
 
 export type Artwork = {

@@ -9,7 +9,7 @@ export type ProviderCapabilities = {
    */
   supportsPublicDomainFilter: boolean
   supportsHasImageFilter: boolean
-  /** Reserved for keyed providers (Rijksmuseum etc.) in a later phase */
+  /** Reserved for keyed providers in a later phase (none registered today) */
   needsApiKey: boolean
   maxPageSize: number
 }
@@ -42,6 +42,19 @@ export interface ArtProvider {
   readonly capabilities: ProviderCapabilities
   /** Hosts this provider fetches from; must all appear in manifest.json networkAccess */
   readonly domains: string[]
+  /**
+   * How image bytes are fetched for this provider's works. 'iframe' is the
+   * default direct `<img>` / UI-side fetch(). 'main-thread' routes bytes
+   * through the plugin controller for hosts that block sandboxed iframe
+   * requests — kept as the flip-back switch, machinery intact and tested.
+   * 'blocked' means neither transport works: AIC's Cloudflare managed
+   * challenge 403s BOTH the iframe (null-origin) AND the plugin main-thread
+   * fetch sandbox AND figma.createImageAsync's cors-image-proxy.figma.com
+   * (verified live 2026-07-07 — see TECH-NOTES.md). Blocked providers never
+   * fire an image fetch; the UI shows lqip + an "Open on <museum>" link and
+   * disables insert/palette/mood-board for those works.
+   */
+  readonly imageLoading: 'iframe' | 'main-thread' | 'blocked'
   search(query: SearchQuery, signal: AbortSignal): Promise<SearchPage>
   getSimilar?(work: Artwork, signal?: AbortSignal): Promise<Artwork[]>
 }

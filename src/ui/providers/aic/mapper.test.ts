@@ -15,6 +15,12 @@ const FULL: AicArtwork = {
   credit_line: 'Helen Birch Bartlett Memorial Collection',
   department_title: 'Painting and Sculpture of Europe',
   artwork_type_title: 'Painting',
+  thumbnail: {
+    lqip: 'data:image/gif;base64,AAAA',
+    alt_text: 'A pointillist painting of people relaxing by a river.',
+    width: 4096,
+    height: 3099,
+  },
 }
 
 describe('aicToArtwork', () => {
@@ -37,6 +43,8 @@ describe('aicToArtwork', () => {
     )
     expect(work.image.thumbnailUrl).toContain('/full/400,/0/default.jpg')
     expect(work.image.width).toBeUndefined()
+    expect(work.image.lqip).toBe('data:image/gif;base64,AAAA')
+    expect(work.image.altText).toBe('A pointillist painting of people relaxing by a river.')
   })
 
   it('handles items without an image', () => {
@@ -45,5 +53,28 @@ describe('aicToArtwork', () => {
     expect(work.artist).toBe('Unknown artist')
     expect(work.rights).toBe('copyrighted')
     expect(work.image).toEqual({})
+  })
+
+  it('tolerates a null thumbnail block', () => {
+    const work = aicToArtwork({
+      id: 2,
+      is_public_domain: true,
+      image_id: 'abc-123',
+      thumbnail: null,
+    })
+    expect(work.image.iiifBase).toBe('https://www.artic.edu/iiif/2/abc-123')
+    expect(work.image.lqip).toBeUndefined()
+    expect(work.image.altText).toBeUndefined()
+  })
+
+  it('tolerates null lqip/alt_text fields within a present thumbnail block', () => {
+    const work = aicToArtwork({
+      id: 3,
+      is_public_domain: true,
+      image_id: 'def-456',
+      thumbnail: { lqip: null, alt_text: null, width: null, height: null },
+    })
+    expect(work.image.lqip).toBeUndefined()
+    expect(work.image.altText).toBeUndefined()
   })
 })

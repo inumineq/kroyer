@@ -14,6 +14,7 @@ const FIELDS = [
   'date_end',
   'is_public_domain',
   'image_id',
+  'thumbnail',
   'medium_display',
   'credit_line',
   'department_title',
@@ -64,5 +65,14 @@ export const aicProvider: ArtProvider = {
     maxPageSize: 100,
   },
   domains: ['api.artic.edu', 'www.artic.edu'],
+  // www.artic.edu sits behind a Cloudflare managed challenge that 403s
+  // EVERY sandboxed/null-origin context we can reach: the plugin UI iframe,
+  // the plugin main-thread fetch() sandbox, and figma.createImageAsync's own
+  // cors-image-proxy.figma.com — verified live 2026-07-07 (TECH-NOTES.md).
+  // There is no viable byte route. 'blocked' renders lqip + an external
+  // link permanently; flip back to 'main-thread' if AIC ever lifts the
+  // block — that machinery (pluginFetch/imageCache/controller handler)
+  // stays intact and tested.
+  imageLoading: 'blocked',
   search,
 }

@@ -2,6 +2,8 @@ import { useState } from 'react'
 import type { Artwork } from '../../shared/model'
 import { hasDisplayableImage, RIGHTS_DISPLAY } from '../../shared/model'
 import { getProvider } from '../providers/registry'
+import { useArtworkImage } from '../images/useArtworkImage'
+import { postToPlugin } from '../messages'
 
 type Props = {
   work: Artwork
@@ -23,7 +25,15 @@ export function ResultCard({
   const [loaded, setLoaded] = useState(false)
   const [imageError, setImageError] = useState(false)
 
-  const insertable = hasDisplayableImage(work)
+  const provider = getProvider(work.provider)
+  const imageBlockedProvider = provider.imageLoading === 'blocked'
+  const insertable = hasDisplayableImage(work) && !imageBlockedProvider
+  const image = useArtworkImage(work, 'thumbnail')
+  // Distinguish "genuinely no image" from "preview unavailable" (AIC/
+  // Cloudflare, or any main-thread fetch failure) — hasDisplayableImage
+  // means a URL exists, so an error status here means the fetch was blocked
+  // or failed rather than the work simply lacking an image.
+  const blocked = image.status === 'error' && hasDisplayableImage(work)
 
   function handleDragStart(e: React.DragEvent<HTMLImageElement>) {
     e.dataTransfer.setData('text/plain', work.key)
@@ -45,10 +55,15 @@ export function ResultCard({
         aria-label={`Open details for ${work.title} by ${work.artist}`}
       >
         <div className="result-card__image-wrap">
-          {!loaded && !imageError && <div className="result-card__skeleton" aria-hidden="true" />}
-          {work.image.thumbnailUrl && !imageError ? (
+          {!loaded && !imageError && image.lqip && (
+            <img src={image.lqip} alt="" className="result-card__lqip" aria-hidden="true" />
+          )}
+          {!loaded && !imageError && !image.lqip && (
+            <div className="result-card__skeleton" aria-hidden="true" />
+          )}
+          {image.src && !imageError && !blocked ? (
             <img
-              src={work.image.thumbnailUrl}
+              src={image.src}
               alt=""
               className="result-card__image"
               loading="lazy"
@@ -59,6 +74,17 @@ export function ResultCard({
               onDragStart={handleDragStart}
               onDragEnd={handleDragEnd}
             />
+          ) : blocked ? (
+            <button
+              type="button"
+              className="result-card__blocked"
+              onClick={(e) => {
+                e.stopPropagation()
+                if (work.sourceUrl) postToPlugin({ type: 'open-url', url: work.sourceUrl })
+              }}
+            >
+              Preview unavailable — open on {provider.shortLabel.toLowerCase()}
+            </button>
           ) : (
             <div className="result-card__no-image" aria-hidden="true">
               No image
@@ -80,6 +106,7 @@ export function ResultCard({
                 onInsert()
               }}
               disabled={inserting || !insertable}
+              title={imageBlockedProvider ? `Insert unavailable — ${provider.shortLabel} preview is blocked` : undefined}
             >
               {inserting ? 'Inserting…' : 'Insert'}
             </button>
@@ -107,7 +134,7 @@ export function ResultCard({
           {work.title}
         </p>
         <p className="result-card__artist" title={work.artist}>
-          <span className="result-card__provider">{getProvider(work.provider).shortLabel}</span>
+          <span className="result-card__provider">{provider.shortLabel}</span>
           {work.artist}
           {work.dateText && <span className="result-card__year"> · {work.dateText}</span>}
         </p>

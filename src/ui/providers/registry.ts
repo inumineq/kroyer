@@ -4,12 +4,15 @@ import { smkProvider } from './smk/provider'
 import { aicProvider } from './aic/provider'
 import { cmaProvider } from './cma/provider'
 import { metProvider } from './met/provider'
+import { rijksProvider } from './rijks/provider'
 
+// Insertion order is museum-picker order.
 const PROVIDERS: Record<ProviderId, ArtProvider> = {
   smk: smkProvider,
   aic: aicProvider,
   cma: cmaProvider,
   met: metProvider,
+  rijks: rijksProvider,
 }
 
 export const DEFAULT_PROVIDER_ID: ProviderId = 'smk'

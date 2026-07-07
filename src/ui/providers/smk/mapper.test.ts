@@ -49,6 +49,13 @@ describe('smkToArtwork', () => {
     })
   })
 
+  it('derives sourceUrl from the object number when frontend_url is absent', () => {
+    // frontend_url is never in search responses — requesting it via fields=
+    // makes the API 500, so the provider omits it and the mapper derives it.
+    const work = smkToArtwork(SMK_FIXTURE_SPARSE)
+    expect(work.sourceUrl).toBe('https://open.smk.dk/artwork/image/KKS1234')
+  })
+
   it('defaults missing fields on a sparse item', () => {
     const work = smkToArtwork(SMK_FIXTURE_SPARSE)
     expect(work.title).toBe('Untitled')

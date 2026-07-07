@@ -5,6 +5,9 @@ import { ALLOWED_STORAGE_KEYS, STORAGE_KEYS } from '../shared/storageKeys'
 
 figma.showUI(__html__, { width: 360, height: 600, themeColors: true })
 
+/** Hosts `fetchImageForUi` is willing to fetch — never become an open proxy. */
+const IMAGE_FETCH_ALLOWLIST = ['www.artic.edu']
+
 bootstrap().catch((err) => {
   console.error('[Krøyer] bootstrap failed:', err)
   // Send an empty init so the UI still becomes interactive
@@ -48,7 +51,6 @@ async function bootstrap() {
     provider,
   })
 }
-
 
 figma.ui.onmessage = async (msg: UiToPluginMessage) => {
   try {
@@ -100,10 +102,43 @@ figma.ui.onmessage = async (msg: UiToPluginMessage) => {
           height: msg.height,
         })
         break
+      case 'fetch-image':
+        // Errors are caught inside fetchImageForUi and always resolved as a
+        // {error} result — never rethrown — so a bad image URL can't hit the
+        // outer catch-all here (no toast spam, no hung UI-side promise).
+        await fetchImageForUi(msg.url, msg.requestId)
+        break
     }
   } catch (err) {
     const message = err instanceof Error ? err.message : 'Plugin error'
     figma.notify(message, { error: true })
+  }
+}
+
+/**
+ * Fetches image bytes from the main thread on behalf of the UI iframe.
+ * Some museum image hosts (AIC's Cloudflare-fronted IIIF host) block
+ * sandboxed null-origin iframe fetches but allow normal page-context
+ * requests — the plugin main thread runs in the latter. Host-restricted via
+ * IMAGE_FETCH_ALLOWLIST so this can never become an open fetch proxy.
+ */
+async function fetchImageForUi(url: string, requestId: number) {
+  try {
+    const host = new URL(url).hostname
+    if (IMAGE_FETCH_ALLOWLIST.indexOf(host) === -1) {
+      throw new Error(`Host not allowed: ${host}`)
+    }
+    const res = await fetch(url)
+    if (!res.ok) throw new Error(`Image fetch failed: ${res.status}`)
+    const buf = await res.arrayBuffer()
+    figma.ui.postMessage({
+      type: 'fetch-image-result',
+      requestId,
+      bytes: new Uint8Array(buf),
+    })
+  } catch (err) {
+    const message = err instanceof Error ? err.message : 'Image fetch failed'
+    figma.ui.postMessage({ type: 'fetch-image-result', requestId, error: message })
   }
 }
 

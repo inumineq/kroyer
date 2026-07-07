@@ -1,9 +1,9 @@
 import { Fragment, useState } from 'react'
 import type { Artwork } from '../../shared/model'
 import { hasDisplayableImage, isFreelyUsable, RIGHTS_DISPLAY } from '../../shared/model'
-import { imageUrlFor } from '../images/sizing'
 import { getProvider } from '../providers/registry'
 import { postToPlugin } from '../messages'
+import { useArtworkImage } from '../images/useArtworkImage'
 import { useEscapeKey } from '../hooks/useEscapeKey'
 import type { InsertSize } from '../types'
 import { PaletteSection } from './PaletteSection'
@@ -41,7 +41,14 @@ export function DetailPanel({
   useEscapeKey(onClose)
 
   const provider = getProvider(work.provider)
-  const previewUrl = imageUrlFor(work, 'medium')
+  const imageBlockedProvider = provider.imageLoading === 'blocked'
+  const image = useArtworkImage(work, 'medium')
+  // Distinguish "genuinely no image" from "preview unavailable" (AIC/
+  // Cloudflare, or any main-thread fetch failure) — hasDisplayableImage
+  // means a URL exists, so an error status here means the fetch was blocked
+  // or failed rather than the work simply lacking an image.
+  const blocked = image.status === 'error' && hasDisplayableImage(work)
+  const insertable = hasDisplayableImage(work) && !imageBlockedProvider
   const freelyUsable = isFreelyUsable(work.rights)
   const paragraphs = work.description?.split('\n\n') ?? []
 
@@ -79,8 +86,26 @@ export function DetailPanel({
 
       <div className="detail-panel__body">
         <div className="detail-panel__image-wrap">
-          {previewUrl ? (
-            <img src={previewUrl} alt={work.title} className="detail-panel__image" />
+          {blocked ? (
+            <div className="detail-panel__no-image">
+              {image.lqip && (
+                <img src={image.lqip} alt="" className="detail-panel__lqip" aria-hidden="true" />
+              )}
+              <p>Preview unavailable</p>
+              {work.sourceUrl && (
+                <button
+                  type="button"
+                  className="detail-panel__blocked-link"
+                  onClick={() => postToPlugin({ type: 'open-url', url: work.sourceUrl! })}
+                >
+                  Open on {provider.shortLabel} ↗
+                </button>
+              )}
+            </div>
+          ) : image.src ? (
+            <img src={image.src} alt={work.title} className="detail-panel__image" />
+          ) : image.lqip ? (
+            <img src={image.lqip} alt="" className="detail-panel__lqip" aria-hidden="true" />
           ) : (
             <div className="detail-panel__no-image">No image available</div>
           )}
@@ -178,7 +203,8 @@ export function DetailPanel({
           type="button"
           className="detail-panel__insert"
           onClick={() => onInsert(size, withCaption)}
-          disabled={inserting || !hasDisplayableImage(work)}
+          disabled={inserting || !insertable}
+          title={imageBlockedProvider ? `Insert unavailable — ${provider.shortLabel} preview is blocked` : undefined}
         >
           {inserting ? 'Inserting…' : 'Insert into Figma'}
         </button>

@@ -1,4 +1,6 @@
 import type { Artwork, Collection } from '../../shared/model'
+import { hasDisplayableImage } from '../../shared/model'
+import { getProvider } from '../providers/registry'
 
 export function makeCollection(name: string): Collection {
   return {
@@ -65,4 +67,44 @@ export function renameCollection(
 
 export function deleteCollection(collections: Collection[], id: string): Collection[] {
   return collections.filter((c) => c.id !== id)
+}
+
+export type MoodBoardExportPlan = {
+  /** Works whose image bytes can actually be fetched for the board */
+  eligible: Artwork[]
+  /** Works with an image that were skipped because their provider's images are blocked */
+  blockedCount: number
+  /** Honest notify message for the skipped works; undefined when nothing was skipped */
+  skipMessage?: string
+}
+
+/**
+ * Partitions a collection's works for mood-board export. Works without a
+ * displayable image are dropped silently (as before); works from providers
+ * whose images are blocked (imageLoading: 'blocked' — AIC, see
+ * providers/types.ts) are skipped WITHOUT attempting a fetch that is
+ * guaranteed to 403, and counted so the UI can report an honest skip count
+ * instead of dropping them silently.
+ */
+export function planMoodBoardExport(works: Artwork[]): MoodBoardExportPlan {
+  const eligible: Artwork[] = []
+  const blockedLabels: string[] = []
+  let blockedCount = 0
+
+  for (const work of works.filter(hasDisplayableImage)) {
+    const provider = getProvider(work.provider)
+    if (provider.imageLoading === 'blocked') {
+      blockedCount++
+      if (blockedLabels.indexOf(provider.shortLabel) === -1) blockedLabels.push(provider.shortLabel)
+    } else {
+      eligible.push(work)
+    }
+  }
+
+  const skipMessage =
+    blockedCount > 0
+      ? `Skipped ${blockedCount} ${blockedCount === 1 ? 'artwork' : 'artworks'} (${blockedLabels.join('/')} images are blocked)`
+      : undefined
+
+  return { eligible, blockedCount, skipMessage }
 }
