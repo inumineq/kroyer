@@ -35,4 +35,10 @@ describe('getProvider', () => {
   it('marks AIC image bytes as blocked (Cloudflare 403s every sandboxed route)', () => {
     expect(getProvider('aic').imageLoading).toBe('blocked')
   })
+
+  it('registers the Rijksmuseum keyless (data.rijksmuseum.nl needs no API key)', () => {
+    expect(isProviderId('rijks')).toBe(true)
+    expect(getProvider('rijks').capabilities.needsApiKey).toBe(false)
+    expect(getProvider('rijks').imageLoading).toBe('iframe')
+  })
 })

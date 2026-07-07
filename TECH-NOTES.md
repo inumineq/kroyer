@@ -24,6 +24,25 @@ fetch machinery (`pluginFetch.ts`, `imageCache.ts`, the plugin controller's
 `fetch-image` handler, and the `'main-thread'` code path in
 `useArtworkImage.ts`) is kept intact and under test for that day.
 
+## Rijksmuseum — keyless Data Services API, verified 2026-07-08
+
+The old keyed `www.rijksmuseum.nl/api` is **dead (HTTP 410 Gone)**. The
+provider uses the keyless `data.rijksmuseum.nl` instead — no API key, CORS
+`*`. Its search endpoint (`/search/collection`) has **no free-text param**
+(unknown params → 400), only field params (`title`, `creator`,
+`description`, `imageAvailable`, …), so free text fans out client-side to
+up to three parallel field searches whose ID streams are merged and
+deduped (see `src/ui/providers/rijks/provider.ts`). Hydration is one call
+per object via the EDM-framed JSON-LD profile
+(`/{id}?_profile=edm-framed&_media_type=application/ld+json`), which
+returns title, creator, object number, date, medium, rights URI, website
+link, and IIIF image/service URLs in a single document. Images come from
+`iiif.micr.io` (IIIF Image API v3, level2), which serves sandboxed
+requests openly — CORS `*`, no Cloudflare challenge (unlike AIC) — so the
+provider uses the default `imageLoading: 'iframe'`. V1 caps each query's
+reachable universe at the first page (100 ids) per stream; `pageToken`
+continuation is the documented later extension.
+
 Validated against live API on 2026-05-18. All four critical assumptions from the original plan resolved during Phase 0; remaining items have been confirmed during Phase 1-4 implementation.
 
 ## 1. CORS — open ✅

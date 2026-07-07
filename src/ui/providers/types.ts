@@ -9,7 +9,7 @@ export type ProviderCapabilities = {
    */
   supportsPublicDomainFilter: boolean
   supportsHasImageFilter: boolean
-  /** Reserved for keyed providers (Rijksmuseum etc.) in a later phase */
+  /** Reserved for keyed providers in a later phase (none registered today) */
   needsApiKey: boolean
   maxPageSize: number
 }

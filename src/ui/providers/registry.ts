@@ -4,15 +4,15 @@ import { smkProvider } from './smk/provider'
 import { aicProvider } from './aic/provider'
 import { cmaProvider } from './cma/provider'
 import { metProvider } from './met/provider'
+import { rijksProvider } from './rijks/provider'
 
-// Partial while the Rijksmuseum provider lands: 'rijks' is in ProviderId but
-// registers in the next commit. Until then isProviderId('rijks') is honestly
-// false and getProvider falls back to SMK.
-const PROVIDERS: Partial<Record<ProviderId, ArtProvider>> = {
+// Insertion order is museum-picker order.
+const PROVIDERS: Record<ProviderId, ArtProvider> = {
   smk: smkProvider,
   aic: aicProvider,
   cma: cmaProvider,
   met: metProvider,
+  rijks: rijksProvider,
 }
 
 export const DEFAULT_PROVIDER_ID: ProviderId = 'smk'
@@ -27,5 +27,5 @@ export function getProvider(id: ProviderId): ArtProvider {
 }
 
 export function listProviders(): ArtProvider[] {
-  return Object.values(PROVIDERS).filter((p): p is ArtProvider => p !== undefined)
+  return Object.values(PROVIDERS)
 }
