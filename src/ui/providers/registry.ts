@@ -5,7 +5,10 @@ import { aicProvider } from './aic/provider'
 import { cmaProvider } from './cma/provider'
 import { metProvider } from './met/provider'
 
-const PROVIDERS: Record<ProviderId, ArtProvider> = {
+// Partial while the Rijksmuseum provider lands: 'rijks' is in ProviderId but
+// registers in the next commit. Until then isProviderId('rijks') is honestly
+// false and getProvider falls back to SMK.
+const PROVIDERS: Partial<Record<ProviderId, ArtProvider>> = {
   smk: smkProvider,
   aic: aicProvider,
   cma: cmaProvider,
@@ -24,5 +27,5 @@ export function getProvider(id: ProviderId): ArtProvider {
 }
 
 export function listProviders(): ArtProvider[] {
-  return Object.values(PROVIDERS)
+  return Object.values(PROVIDERS).filter((p): p is ArtProvider => p !== undefined)
 }

@@ -6,7 +6,7 @@
  * collections, messages — works only with this shape.
  */
 
-export type ProviderId = 'smk' | 'aic' | 'cma' | 'met'
+export type ProviderId = 'smk' | 'aic' | 'cma' | 'met' | 'rijks'
 
 export type Rights = 'public-domain' | 'cc0' | 'cc-by' | 'copyrighted' | 'unknown'
 
