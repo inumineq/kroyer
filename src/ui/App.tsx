@@ -12,6 +12,7 @@ import { useSearch } from './hooks/useSearch'
 import { useInsertImage } from './hooks/useInsertImage'
 import { postToPlugin } from './messages'
 import { fetchImageWithDimensions } from './utils/images'
+import { mapWithConcurrency } from './utils/async'
 import { imageUrlFor } from './images/sizing'
 import { getProvider, DEFAULT_PROVIDER_ID } from './providers/registry'
 import { COLLECTIONS_V2_KEY, loadCollections, makeEnvelope } from './storage/migrate'
@@ -144,26 +145,27 @@ export function App() {
 
     setExportingMoodBoard({ name: collection.name, progress: 0, total: eligible.length })
 
-    const items = []
-    for (const work of eligible) {
-      const url = imageUrlFor(work, 'medium')
-      if (!url) continue
-      try {
+    const fetched = await mapWithConcurrency(
+      eligible,
+      4,
+      async (work) => {
+        const url = imageUrlFor(work, 'medium')
+        if (!url) throw new Error('no image')
         const { bytes, width, height } = await fetchImageWithDimensions(url)
-        items.push({
+        return {
           imageBytes: bytes,
           width,
           height,
           title: work.title,
           artist: work.artist,
-        })
-      } catch {
-        // Skip individual failures, keep going
-      }
-      setExportingMoodBoard((prev) =>
-        prev ? { ...prev, progress: prev.progress + 1 } : null,
-      )
-    }
+        }
+      },
+      () =>
+        setExportingMoodBoard((prev) =>
+          prev ? { ...prev, progress: prev.progress + 1 } : null,
+        ),
+    )
+    const items = fetched.filter((item) => item !== null)
 
     if (items.length > 0) {
       postToPlugin({ type: 'create-mood-board', items, title: collection.name })
@@ -233,14 +235,30 @@ export function App() {
             )}
 
             {showResults && (
-              <ResultGrid
-                results={search.results}
-                onSelect={setSelectedWork}
-                onInsert={handleInsertFromGrid}
-                insertingId={insert.inserting}
-                favoriteIds={favoriteIds}
-                onToggleFavorite={handleToggleFavorite}
-              />
+              <>
+                <ResultGrid
+                  results={search.results}
+                  onSelect={setSelectedWork}
+                  onInsert={handleInsertFromGrid}
+                  insertingId={insert.inserting}
+                  favoriteIds={favoriteIds}
+                  onToggleFavorite={handleToggleFavorite}
+                />
+                {search.hasMore && (
+                  <div className="load-more">
+                    <button
+                      type="button"
+                      className="load-more__button"
+                      onClick={search.loadMore}
+                      disabled={search.loadingMore}
+                    >
+                      {search.loadingMore
+                        ? 'Loading…'
+                        : `Load more (${search.results.length.toLocaleString('en-US')} of ${search.found.toLocaleString('en-US')})`}
+                    </button>
+                  </div>
+                )}
+              </>
             )}
           </section>
         </>
