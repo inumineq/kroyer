@@ -1,5 +1,6 @@
 import { useState } from 'react'
 import type { Artwork } from '../../shared/model'
+import { hasDisplayableImage } from '../../shared/model'
 import { extractPalette, rgbToHex, type PaletteColor } from '../utils/palette'
 import { imageUrlFor } from '../images/sizing'
 import { getProvider } from '../providers/registry'
@@ -48,7 +49,7 @@ export function PaletteSection({ work }: Props) {
     setTimeout(() => setCreated(false), 2000)
   }
 
-  if (!work.image.thumbnailUrl) return null
+  if (!hasDisplayableImage(work)) return null
 
   return (
     <div className="palette">

@@ -25,9 +25,24 @@ describe('imageUrlFor', () => {
     )
   })
 
-  it('falls back to the fixed thumbnail without IIIF', () => {
-    const work = makeWork({ thumbnailUrl: 'thumb.jpg' })
-    expect(imageUrlFor(work, 'large')).toBe('thumb.jpg')
+  it('falls back to the fixed thumbnail without IIIF for small presets', () => {
+    const work = makeWork({ thumbnailUrl: 'thumb.jpg', nativeUrl: 'native.jpg' })
+    expect(imageUrlFor(work, 'thumbnail')).toBe('thumb.jpg')
+    expect(imageUrlFor(work, 'medium')).toBe('thumb.jpg')
+  })
+
+  it('prefers the native image for large on fixed-URL providers', () => {
+    const work = makeWork({ thumbnailUrl: 'thumb.jpg', nativeUrl: 'native.jpg' })
+    expect(imageUrlFor(work, 'large')).toBe('native.jpg')
+    // still falls back to the thumbnail when no native exists
+    expect(imageUrlFor(makeWork({ thumbnailUrl: 'thumb.jpg' }), 'large')).toBe('thumb.jpg')
+  })
+
+  it('snaps AIC requests to documented sizes with strict IIIF 2.0 syntax', () => {
+    const work = { ...makeWork({ iiifBase: 'https://www.artic.edu/iiif/2/abc' }), provider: 'aic' as const }
+    expect(imageUrlFor(work, 'thumbnail')).toBe('https://www.artic.edu/iiif/2/abc/full/400,/0/default.jpg')
+    expect(imageUrlFor(work, 'medium')).toBe('https://www.artic.edu/iiif/2/abc/full/843,/0/default.jpg')
+    expect(imageUrlFor(work, 'large')).toBe('https://www.artic.edu/iiif/2/abc/full/1686,/0/default.jpg')
   })
 
   it('returns the native URL for native size', () => {

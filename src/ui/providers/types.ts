@@ -9,12 +9,8 @@ export type ProviderCapabilities = {
    */
   supportsPublicDomainFilter: boolean
   supportsHasImageFilter: boolean
-  supportsSimilar: boolean
-  /** Did-you-mean spelling corrections in search responses */
-  supportsCorrections: boolean
+  /** Reserved for keyed providers (Rijksmuseum etc.) in a later phase */
   needsApiKey: boolean
-  /** Provider-side cap on requestable image width, when known */
-  maxImageSizePx?: number
   maxPageSize: number
 }
 

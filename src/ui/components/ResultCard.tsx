@@ -1,6 +1,6 @@
 import { useState } from 'react'
 import type { Artwork } from '../../shared/model'
-import { hasDisplayableImage, isFreelyUsable } from '../../shared/model'
+import { hasDisplayableImage, RIGHTS_DISPLAY } from '../../shared/model'
 import { getProvider } from '../providers/registry'
 
 type Props = {
@@ -65,7 +65,11 @@ export function ResultCard({
             </div>
           )}
 
-          {!isFreelyUsable(work.rights) && <span className="result-card__rights-badge">©</span>}
+          {RIGHTS_DISPLAY[work.rights].badge && (
+            <span className="result-card__rights-badge" title={RIGHTS_DISPLAY[work.rights].label}>
+              {RIGHTS_DISPLAY[work.rights].badge}
+            </span>
+          )}
 
           <div className="result-card__overlay">
             <button

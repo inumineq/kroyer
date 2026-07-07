@@ -28,7 +28,10 @@ function canvasToBytes(canvas: HTMLCanvasElement, mimeType: string): Promise<Uin
   })
 }
 
-export async function fetchImageWithDimensions(url: string): Promise<FetchedImage> {
+export async function fetchImageWithDimensions(
+  url: string,
+  maxPx: number = FIGMA_MAX_IMAGE_PX,
+): Promise<FetchedImage> {
   const response = await fetch(url)
   if (!response.ok) throw new Error(`Image fetch failed: ${response.status}`)
 
@@ -41,9 +44,11 @@ export async function fetchImageWithDimensions(url: string): Promise<FetchedImag
     const height = img.naturalHeight
 
     // figma.createImage throws above 4096px per side. IIIF providers are
-    // clamped at the URL level; this canvas downscale covers the rest.
-    if (width > FIGMA_MAX_IMAGE_PX || height > FIGMA_MAX_IMAGE_PX) {
-      const scale = FIGMA_MAX_IMAGE_PX / Math.max(width, height)
+    // clamped at the URL level; this canvas downscale covers fixed-URL
+    // providers and honors smaller requested insert sizes.
+    const limit = Math.min(maxPx, FIGMA_MAX_IMAGE_PX)
+    if (width > limit || height > limit) {
+      const scale = limit / Math.max(width, height)
       const canvas = document.createElement('canvas')
       canvas.width = Math.round(width * scale)
       canvas.height = Math.round(height * scale)

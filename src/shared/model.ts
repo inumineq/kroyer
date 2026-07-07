@@ -58,6 +58,18 @@ export function isFreelyUsable(rights: Rights): boolean {
   return rights === 'public-domain' || rights === 'cc0'
 }
 
+/**
+ * Exhaustive display mapping for every rights value, so adding a Rights
+ * member forces both the card badge and the detail label to be considered.
+ */
+export const RIGHTS_DISPLAY: Record<Rights, { label: string; badge?: string }> = {
+  'public-domain': { label: 'Public Domain' },
+  cc0: { label: 'Public Domain (CC0)' },
+  'cc-by': { label: 'CC BY — attribution required', badge: 'CC BY' },
+  copyrighted: { label: '© Under copyright', badge: '©' },
+  unknown: { label: 'Rights unknown', badge: '©?' },
+}
+
 export function hasDisplayableImage(work: Artwork): boolean {
   return Boolean(work.image.thumbnailUrl ?? work.image.nativeUrl)
 }

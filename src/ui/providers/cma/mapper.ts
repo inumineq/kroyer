@@ -11,7 +11,9 @@ function toNumber(value: string | number | undefined): number | undefined {
 export function cmaToArtwork(raw: CmaArtwork): Artwork {
   const id = String(raw.id)
   const web = raw.images?.web
-  const full = raw.images?.full ?? raw.images?.print
+  // images.full is a TIFF, which browsers can't decode — never use it.
+  // images.print is a high-res JPEG.
+  const native = raw.images?.print ?? web
 
   const extra: Record<string, string> = {}
   if (raw.type) extra['Type'] = raw.type
@@ -34,10 +36,10 @@ export function cmaToArtwork(raw: CmaArtwork): Artwork {
     sourceUrl: raw.url ?? undefined,
     image: {
       thumbnailUrl: web?.url,
-      nativeUrl: full?.url ?? web?.url,
+      nativeUrl: native?.url,
       // Dimensions of the native image let sizing/downscale guard >4096px
-      width: toNumber(full?.width ?? web?.width),
-      height: toNumber(full?.height ?? web?.height),
+      width: toNumber(native?.width),
+      height: toNumber(native?.height),
     },
     extra,
   }

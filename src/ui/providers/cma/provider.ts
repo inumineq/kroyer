@@ -1,3 +1,4 @@
+import { fetchJson, offsetHasMore } from '../shared'
 import type { ArtProvider, SearchPage, SearchQuery } from '../types'
 import { cmaToArtwork } from './mapper'
 import type { CmaSearchResponse } from './types'
@@ -36,16 +37,17 @@ async function search(query: SearchQuery, signal: AbortSignal): Promise<SearchPa
     params.set('created_before', String(query.yearEnd))
   }
 
-  const res = await fetch(`${API_BASE}/artworks/?${params}`, { signal })
-  if (!res.ok) throw new Error(`Cleveland Museum of Art search failed: ${res.status}`)
-
-  const data: CmaSearchResponse = await res.json()
+  const data = await fetchJson<CmaSearchResponse>(
+    'Cleveland Museum of Art search',
+    `${API_BASE}/artworks/?${params}`,
+    signal,
+  )
   const items = (data.data ?? []).map(cmaToArtwork)
   const total = data.info?.total ?? items.length
   return {
     items,
     total,
-    hasMore: query.page * query.pageSize + items.length < total,
+    hasMore: offsetHasMore(query.page, query.pageSize, items.length, total),
   }
 }
 
@@ -58,8 +60,6 @@ export const cmaProvider: ArtProvider = {
     supportsPeriodFilter: true,
     supportsPublicDomainFilter: true,
     supportsHasImageFilter: true,
-    supportsSimilar: false,
-    supportsCorrections: false,
     needsApiKey: false,
     maxPageSize: 100,
   },

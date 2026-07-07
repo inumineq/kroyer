@@ -15,7 +15,8 @@ const PROVIDERS: Record<ProviderId, ArtProvider> = {
 export const DEFAULT_PROVIDER_ID: ProviderId = 'smk'
 
 export function isProviderId(value: unknown): value is ProviderId {
-  return typeof value === 'string' && value in PROVIDERS
+  // hasOwnProperty, not `in`: stored junk like 'toString' must not pass
+  return typeof value === 'string' && Object.prototype.hasOwnProperty.call(PROVIDERS, value)
 }
 
 export function getProvider(id: ProviderId): ArtProvider {

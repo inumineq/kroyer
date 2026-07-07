@@ -1,3 +1,4 @@
+import { fetchJson } from '../shared'
 import type { ArtProvider, SearchPage, SearchQuery } from '../types'
 import { aicToArtwork } from './mapper'
 import type { AicSearchResponse } from './types'
@@ -23,11 +24,8 @@ const FIELDS = [
 const MAX_RESULTS = 1000
 
 async function search(query: SearchQuery, signal: AbortSignal): Promise<SearchPage> {
-  // No dedicated artist filter — fold the artist into the full-text query.
-  const text = [query.text.trim(), query.artist?.trim()].filter(Boolean).join(' ')
-
   const params = new URLSearchParams({
-    q: text,
+    q: query.text.trim(),
     fields: FIELDS,
     limit: String(query.pageSize),
     page: String(query.page + 1), // AIC pages are 1-based
@@ -36,17 +34,20 @@ async function search(query: SearchQuery, signal: AbortSignal): Promise<SearchPa
     params.set('query[term][is_public_domain]', 'true')
   }
 
-  const res = await fetch(`${API_BASE}/artworks/search?${params}`, { signal })
-  if (!res.ok) throw new Error(`Art Institute of Chicago search failed: ${res.status}`)
-
-  const data: AicSearchResponse = await res.json()
+  const data = await fetchJson<AicSearchResponse>(
+    'Art Institute of Chicago search',
+    `${API_BASE}/artworks/search?${params}`,
+    signal,
+  )
   const items = (data.data ?? []).map(aicToArtwork)
   const total = data.pagination?.total ?? items.length
-  const reachable = Math.min(total, MAX_RESULTS)
+  // The NEXT request (1-based page + 2) must stay within the access cap:
+  // its window ends at (page + 2) * pageSize records.
+  const nextRequestOk = (query.page + 2) * query.pageSize <= MAX_RESULTS
   return {
     items,
     total,
-    hasMore: (query.page + 1) * query.pageSize < reachable,
+    hasMore: nextRequestOk && (query.page + 1) * query.pageSize < total,
   }
 }
 
@@ -59,10 +60,7 @@ export const aicProvider: ArtProvider = {
     supportsPeriodFilter: false,
     supportsPublicDomainFilter: true,
     supportsHasImageFilter: false,
-    supportsSimilar: false,
-    supportsCorrections: false,
     needsApiKey: false,
-    maxImageSizePx: 1686,
     maxPageSize: 100,
   },
   domains: ['api.artic.edu', 'www.artic.edu'],

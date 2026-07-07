@@ -11,24 +11,21 @@ export const SIZE_PIXELS: Record<Exclude<ImageSize, 'native'>, number> = {
 /** figma.createImage rejects images larger than this on either side. */
 export const FIGMA_MAX_IMAGE_PX = 4096
 
+/** AIC's documented IIIF widths; requests should stick to these. */
+const AIC_SIZES = [200, 400, 600, 843, 1686]
+
 /**
- * IIIF size-segment dialects differ per server: SMK accepts width-only
- * best-fit (`!300,`), AIC is strict IIIF 2.0 (`300,`).
+ * Per-provider IIIF dialect: SMK accepts width-only best-fit (`!300,`) at any
+ * width; AIC is strict IIIF 2.0 (`300,`) and documents specific sizes, so
+ * requests snap to the nearest documented width.
  */
 const IIIF_SIZE_SEGMENT: Partial<Record<ProviderId, (px: number) => string>> = {
   smk: (px) => `!${px},`,
-  aic: (px) => `${px},`,
-}
-
-/** Provider-side caps on requestable IIIF width (AIC serves up to 1686px). */
-const PROVIDER_MAX_IIIF_PX: Partial<Record<ProviderId, number>> = {
-  aic: 1686,
+  aic: (px) => `${AIC_SIZES.find((s) => s >= px) ?? AIC_SIZES[AIC_SIZES.length - 1]},`,
 }
 
 export function iiifImageUrl(iiifBase: string, widthPx: number, provider: ProviderId): string {
-  const cap = PROVIDER_MAX_IIIF_PX[provider]
-  const px = cap ? Math.min(widthPx, cap) : widthPx
-  const segment = (IIIF_SIZE_SEGMENT[provider] ?? IIIF_SIZE_SEGMENT.smk!)(px)
+  const segment = (IIIF_SIZE_SEGMENT[provider] ?? IIIF_SIZE_SEGMENT.smk!)(widthPx)
   return `${iiifBase}/full/${segment}/0/default.jpg`
 }
 
@@ -50,5 +47,9 @@ export function imageUrlFor(work: Artwork, size: ImageSize): string | undefined 
 
   const px = Math.min(SIZE_PIXELS[size], FIGMA_MAX_IMAGE_PX)
   if (iiifBase) return iiifImageUrl(iiifBase, px, work.provider)
+  // Fixed-URL providers can't resize: for 'large' prefer the native image
+  // (the fetch path downscales to the requested size); smaller presets keep
+  // the fast web-sized thumbnail.
+  if (size === 'large') return nativeUrl ?? thumbnailUrl
   return thumbnailUrl ?? nativeUrl
 }

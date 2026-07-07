@@ -1,6 +1,6 @@
-import { useState } from 'react'
+import { Fragment, useState } from 'react'
 import type { Artwork } from '../../shared/model'
-import { hasDisplayableImage, isFreelyUsable } from '../../shared/model'
+import { hasDisplayableImage, isFreelyUsable, RIGHTS_DISPLAY } from '../../shared/model'
 import { imageUrlFor } from '../images/sizing'
 import { getProvider } from '../providers/registry'
 import { postToPlugin } from '../messages'
@@ -84,19 +84,13 @@ export function DetailPanel({
           ) : (
             <div className="detail-panel__no-image">No image available</div>
           )}
-          {work.rights === 'copyrighted' && (
-            <span className="detail-panel__rights-badge" title="Under copyright">
-              © Under copyright
-            </span>
-          )}
-          {work.rights === 'unknown' && (
-            <span className="detail-panel__rights-badge" title="Rights status unknown">
-              Rights unknown
-            </span>
-          )}
-          {freelyUsable && (
+          {freelyUsable ? (
             <span className="detail-panel__pd-badge" title="Free to use, including commercially">
-              {work.rights === 'cc0' ? 'Public Domain (CC0)' : 'Public Domain'}
+              {RIGHTS_DISPLAY[work.rights].label}
+            </span>
+          ) : (
+            <span className="detail-panel__rights-badge" title={RIGHTS_DISPLAY[work.rights].label}>
+              {RIGHTS_DISPLAY[work.rights].label}
             </span>
           )}
         </div>
@@ -116,10 +110,10 @@ export function DetailPanel({
               </>
             )}
             {Object.entries(work.extra ?? {}).map(([label, value]) => (
-              <div key={label} className="detail-panel__prop" style={{ display: 'contents' }}>
+              <Fragment key={label}>
                 <dt>{label}</dt>
                 <dd>{value}</dd>
-              </div>
+              </Fragment>
             ))}
             {work.creditLine && (
               <>

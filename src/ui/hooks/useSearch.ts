@@ -37,21 +37,27 @@ export function useSearch(provider: ArtProvider, query: string, filters: Filters
 
   const abortRef = useRef<AbortController | null>(null)
   const pageRef = useRef(0)
+  const activeQueryKeyRef = useRef<string | null>(null)
+
+  // A creator filter only exists for providers that support it — otherwise a
+  // value left over from another provider would silently constrain results.
+  const creator = provider.capabilities.supportsArtistFilter ? filters.creator : undefined
 
   const buildQuery = useCallback(
     (page: number): SearchQuery => ({
       text: query.trim(),
-      artist: filters.creator,
+      artist: creator,
       yearStart: filters.periodStart,
       yearEnd: filters.periodEnd,
       publicDomainOnly: filters.publicDomainOnly,
       hasImageOnly: filters.hasImage,
       page,
-      pageSize: PAGE_SIZE,
+      pageSize: Math.min(PAGE_SIZE, provider.capabilities.maxPageSize),
     }),
     [
+      provider,
       query,
-      filters.creator,
+      creator,
       filters.periodStart,
       filters.periodEnd,
       filters.publicDomainOnly,
@@ -61,9 +67,10 @@ export function useSearch(provider: ArtProvider, query: string, filters: Filters
 
   useEffect(() => {
     const trimmed = query.trim()
-    if (!trimmed && !filters.creator) {
+    if (!trimmed && !creator) {
       abortRef.current?.abort()
       pageRef.current = 0
+      activeQueryKeyRef.current = null
       setResults([])
       setFound(0)
       setHasMore(false)
@@ -83,9 +90,11 @@ export function useSearch(provider: ArtProvider, query: string, filters: Filters
       setLoadingMore(false)
       setError(null)
       try {
-        const page = await provider.search(buildQuery(0), controller.signal)
+        const baseQuery = buildQuery(0)
+        const page = await provider.search(baseQuery, controller.signal)
         if (controller.signal.aborted) return
 
+        activeQueryKeyRef.current = `${provider.id}:${JSON.stringify(baseQuery)}`
         setResults(page.items)
         setFound(page.total)
         setHasMore(page.hasMore)
@@ -104,10 +113,14 @@ export function useSearch(provider: ArtProvider, query: string, filters: Filters
     }, DEBOUNCE_MS)
 
     return () => clearTimeout(timer)
-  }, [provider, buildQuery, query, filters.creator])
+  }, [provider, buildQuery, query, creator])
 
   const loadMore = useCallback(async () => {
     if (loading || loadingMore || !hasMore) return
+    // During the debounce after a query/provider change the displayed results
+    // belong to the previous query — ignore clicks until the new base search
+    // has landed.
+    if (activeQueryKeyRef.current !== `${provider.id}:${JSON.stringify(buildQuery(0))}`) return
 
     abortRef.current?.abort()
     const controller = new AbortController()

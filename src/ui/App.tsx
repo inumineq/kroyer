@@ -26,7 +26,9 @@ import {
   type Tab,
   type Collection,
 } from './types'
-import type { Artwork } from '../shared/model'
+import { hasDisplayableImage, type Artwork } from '../shared/model'
+import { STORAGE_KEYS } from '../shared/storageKeys'
+import type { QuotaStatus } from './storage/quota'
 import {
   ensureDefaultCollection,
   favoriteIdsFor,
@@ -71,16 +73,20 @@ export function App() {
 
   useEffect(() => {
     if (!initialized) return
-    postToPlugin({ type: 'storage-set', key: 'history', value: history })
+    postToPlugin({ type: 'storage-set', key: STORAGE_KEYS.history, value: history })
   }, [history, initialized])
 
   const quotaWarned = useRef(false)
+  const quotaRef = useRef<QuotaStatus>('ok')
   useEffect(() => {
     if (!initialized) return
     const envelope = makeEnvelope(collections)
     postToPlugin({ type: 'storage-set', key: COLLECTIONS_V2_KEY, value: envelope })
 
+    // Serializing the envelope is the expensive part — do it once here and
+    // let click handlers read the cached status (at most one change stale).
     const status = quotaStatus(envelope)
+    quotaRef.current = status
     if (status !== 'ok' && !quotaWarned.current) {
       quotaWarned.current = true
       postToPlugin({
@@ -103,7 +109,7 @@ export function App() {
 
   function handleProviderChange(id: ProviderId) {
     setProviderId(id)
-    postToPlugin({ type: 'storage-set', key: 'provider', value: id })
+    postToPlugin({ type: 'storage-set', key: STORAGE_KEYS.provider, value: id })
   }
 
   function handleInsertFromGrid(work: Artwork) {
@@ -118,7 +124,7 @@ export function App() {
   function handleToggleFavorite(work: Artwork) {
     if (!defaultCollection) return
     const isAdd = !favoriteIds.has(work.key)
-    if (isAdd && quotaStatus(makeEnvelope(collections)) === 'full') {
+    if (isAdd && quotaRef.current === 'full') {
       postToPlugin({
         type: 'notify',
         message: 'Collection storage is full — remove some works before adding more',
@@ -146,7 +152,7 @@ export function App() {
   }
 
   async function handleExportMoodBoard(collection: Collection) {
-    const eligible = collection.works.filter((w) => w.image.thumbnailUrl)
+    const eligible = collection.works.filter(hasDisplayableImage)
     if (eligible.length === 0) {
       postToPlugin({ type: 'notify', message: 'No images in this collection to export', error: true })
       return

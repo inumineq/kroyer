@@ -1,13 +1,15 @@
 import type { Artwork, Collection } from '../../shared/model'
+import { STORAGE_KEYS } from '../../shared/storageKeys'
 import { smkToArtwork } from '../providers/smk/mapper'
 import type { SmkArtwork } from '../providers/smk/types'
 
 /**
  * Collections moved to a versioned envelope under a NEW storage key with the
  * provider refactor. The legacy 'collections' key (raw SMK objects) is left
- * untouched for one release as rollback insurance.
+ * untouched for one release as rollback insurance (the sandbox frees it only
+ * if quota pressure prevents the v2 envelope from persisting).
  */
-export const COLLECTIONS_V2_KEY = 'collections.v2'
+export const COLLECTIONS_V2_KEY = STORAGE_KEYS.collectionsV2
 
 export type CollectionsEnvelope = {
   version: 2

@@ -1,6 +1,7 @@
 /// <reference types="@figma/plugin-typings" />
 
 import type { UiToPluginMessage, Caption, ColorStyle, MoodBoardItem } from '../ui/messages'
+import { ALLOWED_STORAGE_KEYS, STORAGE_KEYS } from '../shared/storageKeys'
 
 figma.showUI(__html__, { width: 360, height: 600, themeColors: true })
 
@@ -21,12 +22,14 @@ async function readStorageKey(key: string): Promise<unknown> {
 }
 
 async function bootstrap() {
-  const history = await readStorageKey('history')
-  // Legacy pre-v2 key; kept as rollback insurance and migrated UI-side
-  const collections = await readStorageKey('collections')
-  const collectionsV2 = await readStorageKey('collections.v2')
-  const provider = await readStorageKey('provider')
-  const windowSize = await readStorageKey('window-size')
+  // Legacy pre-v2 collections key is kept as rollback insurance, migrated UI-side
+  const [history, collections, collectionsV2, provider, windowSize] = await Promise.all([
+    readStorageKey(STORAGE_KEYS.history),
+    readStorageKey(STORAGE_KEYS.legacyCollections),
+    readStorageKey(STORAGE_KEYS.collectionsV2),
+    readStorageKey(STORAGE_KEYS.provider),
+    readStorageKey(STORAGE_KEYS.windowSize),
+  ])
 
   if (
     windowSize &&
@@ -46,8 +49,6 @@ async function bootstrap() {
   })
 }
 
-// Only keys the UI legitimately persists; anything else is dropped.
-const ALLOWED_STORAGE_KEYS = ['history', 'collections.v2', 'window-size', 'provider']
 
 figma.ui.onmessage = async (msg: UiToPluginMessage) => {
   try {
@@ -75,7 +76,19 @@ figma.ui.onmessage = async (msg: UiToPluginMessage) => {
           console.warn('[Krøyer] ignoring storage-set for unknown key:', msg.key)
           break
         }
-        await figma.clientStorage.setAsync(msg.key, msg.value)
+        try {
+          await figma.clientStorage.setAsync(msg.key, msg.value)
+        } catch (err) {
+          // A large legacy collections copy can leave no quota headroom for
+          // the v2 envelope. Rollback insurance is moot if v2 can't persist —
+          // free the legacy key and retry once.
+          if (msg.key === STORAGE_KEYS.collectionsV2) {
+            await figma.clientStorage.deleteAsync(STORAGE_KEYS.legacyCollections)
+            await figma.clientStorage.setAsync(msg.key, msg.value)
+          } else {
+            throw err
+          }
+        }
         break
       case 'resize':
         figma.ui.resize(msg.width, msg.height)
@@ -239,6 +252,10 @@ function createMoodBoardCard(
   titleFont: FontName | null,
   bodyFont: FontName | null,
 ): FrameNode {
+  // createImage first: if the bytes are bad it throws before any node
+  // exists, so the per-card catch never leaves an orphaned frame behind.
+  const image = figma.createImage(item.imageBytes)
+
   const card = figma.createFrame()
   card.name = `${item.artist} — ${item.title}`
   card.layoutMode = 'VERTICAL'
@@ -251,7 +268,6 @@ function createMoodBoardCard(
   const aspect = item.width > 0 && item.height > 0 ? item.width / item.height : 1
   const imgH = Math.max(60, Math.round(width / aspect))
 
-  const image = figma.createImage(item.imageBytes)
   const rect = figma.createRectangle()
   rect.resize(width, imgH)
   rect.fills = [{ type: 'IMAGE', scaleMode: 'FILL', imageHash: image.hash }]

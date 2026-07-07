@@ -34,10 +34,12 @@ Before committing:
 
 ```bash
 npm run typecheck
+npm run lint
+npm test
 npm run build
 ```
 
-There is no unit test setup yet. Test paths to add later: pure utilities in `src/ui/utils/` (palette, collections), message envelope shape checks, and component snapshot tests with React Testing Library.
+Unit tests run with vitest (`npm test`). Provider mappers are tested against fixtures in `src/ui/providers/*/`; a build-time test asserts every provider domain is declared in `manifest.json`. Component snapshot tests with React Testing Library are still a welcome addition.
 
 When validating in Figma, walk through the smoke path:
 
@@ -66,10 +68,13 @@ Please open an issue with:
 
 ## Architecture cheat-sheet
 
-- `src/ui/App.tsx` — single orchestrator; manages tab state, search state, collections, history, selected work
-- `src/ui/hooks/useSearch.ts` — debounced search with AbortController cancellation
-- `src/ui/hooks/useInsertImage.ts` — fetches image bytes + dimensions, posts insert message
-- `src/ui/api/smkClient.ts` — typed wrapper around `https://api.smk.dk/api/v1/`
+- `src/shared/model.ts` — normalized `Artwork`/`Collection` model shared by both bundles
+- `src/ui/App.tsx` — single orchestrator; manages tab state, search state, collections, history, selected work, museum picker
+- `src/ui/hooks/useSearch.ts` — debounced, abortable, paginated search against the selected `ArtProvider`
+- `src/ui/hooks/useInsertImage.ts` — fetches image bytes + dimensions (with >4096px downscale), posts insert message
+- `src/ui/providers/` — one directory per museum (`smk`, `aic`, `cma`, `met`): raw API types, mapper to the normalized model, and an `ArtProvider` implementation; `registry.ts` lists them
+- `src/ui/images/sizing.ts` — per-provider IIIF sizing dialects and the 4096px clamp
+- `src/ui/storage/` — collections v2 envelope, legacy migration, quota guard
 - `src/plugin/controller.ts` — entire plugin sandbox; no React, just message router + Figma node creation
 
-See [TECH-NOTES.md](./TECH-NOTES.md) for SMK API specifics.
+See [TECH-NOTES.md](./TECH-NOTES.md) for SMK API specifics and [ROADMAP.md](./ROADMAP.md) for the plan.

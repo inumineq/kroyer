@@ -1,13 +1,11 @@
 import type { Artwork } from '../../../shared/model'
 import { artworkKey } from '../../../shared/model'
+import { iiifImageUrl } from '../../images/sizing'
 import type { AicArtwork } from './types'
 
 const IIIF_URL = 'https://www.artic.edu/iiif/2'
 
-/**
- * AIC asks API consumers to stick to documented sizes; 843px is their
- * standard web size and 1686px the high-res variant.
- */
+/** AIC's high-res documented size — the largest we request. */
 const NATIVE_PX = 1686
 
 export function aicToArtwork(raw: AicArtwork): Artwork {
@@ -36,11 +34,12 @@ export function aicToArtwork(raw: AicArtwork): Artwork {
     sourceUrl: `https://www.artic.edu/artworks/${id}`,
     image: iiifBase
       ? {
-          thumbnailUrl: `${iiifBase}/full/400,/0/default.jpg`,
-          nativeUrl: `${iiifBase}/full/${NATIVE_PX},/0/default.jpg`,
+          // iiifImageUrl owns AIC's IIIF dialect and documented-size snapping
+          thumbnailUrl: iiifImageUrl(iiifBase, 400, 'aic'),
+          nativeUrl: iiifImageUrl(iiifBase, NATIVE_PX, 'aic'),
           iiifBase,
-          // Intentionally no width/height: AIC caps servable sizes, so the
-          // generic 4096px IIIF clamp must not kick in and over-request.
+          // Intentionally no width/height: the native-size IIIF clamp in
+          // imageUrlFor must not request beyond AIC's documented sizes.
         }
       : {},
     extra,
