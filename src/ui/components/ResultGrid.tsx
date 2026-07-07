@@ -1,4 +1,4 @@
-import type { Artwork } from '../api/smkClient'
+import type { Artwork } from '../../shared/model'
 import { ResultCard } from './ResultCard'
 
 type Props = {
@@ -22,12 +22,12 @@ export function ResultGrid({
     <ul className="result-grid">
       {results.map((work) => (
         <ResultCard
-          key={work.object_number}
+          key={work.key}
           work={work}
           onSelect={() => onSelect(work)}
           onInsert={() => onInsert(work)}
-          inserting={insertingId === work.object_number}
-          isFavorite={favoriteIds?.has(work.object_number) ?? false}
+          inserting={insertingId === work.key}
+          isFavorite={favoriteIds?.has(work.key) ?? false}
           onToggleFavorite={onToggleFavorite ? () => onToggleFavorite(work) : undefined}
         />
       ))}

@@ -1,5 +1,5 @@
 import { describe, expect, it } from 'vitest'
-import type { Artwork } from '../api/smkClient'
+import type { Artwork } from '../../shared/model'
 import {
   deleteCollection,
   ensureDefaultCollection,
@@ -11,12 +11,16 @@ import {
   updateSearchHistory,
 } from './collections'
 
-function work(objectNumber: string): Artwork {
+function work(id: string): Artwork {
   return {
-    id: objectNumber,
-    object_number: objectNumber,
-    has_image: true,
-    public_domain: true,
+    v: 1,
+    provider: 'smk',
+    id,
+    key: `smk:${id}`,
+    title: 'T',
+    artist: 'A',
+    rights: 'cc0',
+    image: {},
   }
 }
 
@@ -37,13 +41,13 @@ describe('toggleWorkIn', () => {
   it('adds a work that is not present, newest first', () => {
     const col = { ...makeCollection('C'), works: [work('A')] }
     const result = toggleWorkIn([col], col.id, work('B'))
-    expect(result[0].works.map((w) => w.object_number)).toEqual(['B', 'A'])
+    expect(result[0].works.map((w) => w.id)).toEqual(['B', 'A'])
   })
 
   it('removes a work that is already present', () => {
     const col = { ...makeCollection('C'), works: [work('A'), work('B')] }
     const result = toggleWorkIn([col], col.id, work('A'))
-    expect(result[0].works.map((w) => w.object_number)).toEqual(['B'])
+    expect(result[0].works.map((w) => w.id)).toEqual(['B'])
   })
 
   it('leaves other collections untouched', () => {
@@ -55,17 +59,17 @@ describe('toggleWorkIn', () => {
 })
 
 describe('removeWorkFrom', () => {
-  it('removes by object number', () => {
+  it('removes by work key', () => {
     const col = { ...makeCollection('C'), works: [work('A'), work('B')] }
-    const result = removeWorkFrom([col], col.id, 'A')
-    expect(result[0].works.map((w) => w.object_number)).toEqual(['B'])
+    const result = removeWorkFrom([col], col.id, 'smk:A')
+    expect(result[0].works.map((w) => w.id)).toEqual(['B'])
   })
 })
 
 describe('favoriteIdsFor', () => {
-  it('collects object numbers', () => {
+  it('collects work keys', () => {
     const col = { ...makeCollection('C'), works: [work('A'), work('B')] }
-    expect(favoriteIdsFor(col)).toEqual(new Set(['A', 'B']))
+    expect(favoriteIdsFor(col)).toEqual(new Set(['smk:A', 'smk:B']))
   })
 
   it('returns an empty set for undefined', () => {

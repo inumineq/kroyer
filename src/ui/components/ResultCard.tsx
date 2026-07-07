@@ -1,5 +1,6 @@
 import { useState } from 'react'
-import type { Artwork } from '../api/smkClient'
+import type { Artwork } from '../../shared/model'
+import { hasDisplayableImage, isFreelyUsable } from '../../shared/model'
 
 type Props = {
   work: Artwork
@@ -21,17 +22,15 @@ export function ResultCard({
   const [loaded, setLoaded] = useState(false)
   const [imageError, setImageError] = useState(false)
 
-  const title = work.titles?.[0]?.title ?? 'Untitled'
-  const artist = work.artist?.[0] ?? 'Unknown artist'
-  const year = work.production_date?.[0]?.period
+  const insertable = hasDisplayableImage(work)
 
   function handleDragStart(e: React.DragEvent<HTMLImageElement>) {
-    e.dataTransfer.setData('text/plain', work.object_number)
+    e.dataTransfer.setData('text/plain', work.key)
     e.dataTransfer.effectAllowed = 'copy'
   }
 
   function handleDragEnd(e: React.DragEvent<HTMLImageElement>) {
-    if (e.dataTransfer.dropEffect === 'none' && work.image_thumbnail) {
+    if (e.dataTransfer.dropEffect === 'none' && insertable) {
       onInsert()
     }
   }
@@ -42,13 +41,13 @@ export function ResultCard({
         type="button"
         className="result-card__image-button"
         onClick={onSelect}
-        aria-label={`Open details for ${title} by ${artist}`}
+        aria-label={`Open details for ${work.title} by ${work.artist}`}
       >
         <div className="result-card__image-wrap">
           {!loaded && !imageError && <div className="result-card__skeleton" aria-hidden="true" />}
-          {work.image_thumbnail && !imageError ? (
+          {work.image.thumbnailUrl && !imageError ? (
             <img
-              src={work.image_thumbnail}
+              src={work.image.thumbnailUrl}
               alt=""
               className="result-card__image"
               loading="lazy"
@@ -65,7 +64,7 @@ export function ResultCard({
             </div>
           )}
 
-          {!work.public_domain && <span className="result-card__rights-badge">©</span>}
+          {!isFreelyUsable(work.rights) && <span className="result-card__rights-badge">©</span>}
 
           <div className="result-card__overlay">
             <button
@@ -75,7 +74,7 @@ export function ResultCard({
                 e.stopPropagation()
                 onInsert()
               }}
-              disabled={inserting || !work.image_thumbnail}
+              disabled={inserting || !insertable}
             >
               {inserting ? 'Inserting…' : 'Insert'}
             </button>
@@ -99,12 +98,12 @@ export function ResultCard({
       </button>
 
       <div className="result-card__meta">
-        <p className="result-card__title" title={title}>
-          {title}
+        <p className="result-card__title" title={work.title}>
+          {work.title}
         </p>
-        <p className="result-card__artist" title={artist}>
-          {artist}
-          {year && <span className="result-card__year"> · {year}</span>}
+        <p className="result-card__artist" title={work.artist}>
+          {work.artist}
+          {work.dateText && <span className="result-card__year"> · {work.dateText}</span>}
         </p>
       </div>
     </li>

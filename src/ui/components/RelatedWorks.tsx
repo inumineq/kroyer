@@ -1,5 +1,6 @@
 import { useEffect, useState } from 'react'
-import { getSimilarArtworks, type Artwork } from '../api/smkClient'
+import type { Artwork } from '../../shared/model'
+import { getProvider } from '../providers/registry'
 
 type Props = {
   work: Artwork
@@ -10,36 +11,41 @@ export function RelatedWorks({ work, onSelect }: Props) {
   const [related, setRelated] = useState<Artwork[]>([])
   const [loading, setLoading] = useState(false)
 
+  const provider = getProvider(work.provider)
+  const supported = Boolean(provider.getSimilar && work.similarUrl)
+
   useEffect(() => {
-    if (!work.similar_images_url) {
+    if (!supported) {
       setRelated([])
       return
     }
 
     setLoading(true)
-    let cancelled = false
+    const controller = new AbortController()
 
-    getSimilarArtworks(work.similar_images_url)
+    provider
+      .getSimilar!(work, controller.signal)
       .then((items) => {
-        if (cancelled) return
+        if (controller.signal.aborted) return
         const filtered = items
-          .filter((r) => r.object_number !== work.object_number && r.image_thumbnail)
+          .filter((r) => r.key !== work.key && r.image.thumbnailUrl)
           .slice(0, 8)
         setRelated(filtered)
       })
       .catch(() => {
-        if (!cancelled) setRelated([])
+        if (!controller.signal.aborted) setRelated([])
       })
       .finally(() => {
-        if (!cancelled) setLoading(false)
+        if (!controller.signal.aborted) setLoading(false)
       })
 
     return () => {
-      cancelled = true
+      controller.abort()
     }
-  }, [work.object_number, work.similar_images_url])
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [work.key, supported])
 
-  if (!work.similar_images_url) return null
+  if (!supported) return null
   if (!loading && related.length === 0) return null
 
   return (
@@ -53,13 +59,13 @@ export function RelatedWorks({ work, onSelect }: Props) {
         <div className="related__scroll">
           {related.map((r) => (
             <button
-              key={r.object_number}
+              key={r.key}
               type="button"
               className="related__item"
               onClick={() => onSelect(r)}
-              title={`${r.titles?.[0]?.title ?? 'Untitled'} — ${r.artist?.[0] ?? 'Unknown'}`}
+              title={`${r.title} — ${r.artist}`}
             >
-              <img src={r.image_thumbnail} alt="" loading="lazy" />
+              <img src={r.image.thumbnailUrl} alt="" loading="lazy" />
             </button>
           ))}
         </div>

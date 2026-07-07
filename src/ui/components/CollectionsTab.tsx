@@ -1,6 +1,5 @@
 import { useState } from 'react'
-import type { Artwork } from '../api/smkClient'
-import type { Collection } from '../types'
+import type { Artwork, Collection } from '../../shared/model'
 import { ResultGrid } from './ResultGrid'
 import { StateMessage } from './StateMessage'
 
@@ -9,7 +8,7 @@ type Props = {
   onCreate: (name: string) => void
   onRename: (id: string, name: string) => void
   onDelete: (id: string) => void
-  onRemoveWork: (collectionId: string, objectNumber: string) => void
+  onRemoveWork: (collectionId: string, workKey: string) => void
   onSelectWork: (work: Artwork) => void
   onInsertWork: (work: Artwork) => void
   onExportMoodBoard?: (collection: Collection) => void
@@ -32,7 +31,7 @@ export function CollectionsTab(props: Props) {
           props.onDelete(activeCollection.id)
           setActiveId(null)
         }}
-        onRemoveWork={(objectNumber) => props.onRemoveWork(activeCollection.id, objectNumber)}
+        onRemoveWork={(workKey) => props.onRemoveWork(activeCollection.id, workKey)}
         onSelectWork={props.onSelectWork}
         onInsertWork={props.onInsertWork}
         onExportMoodBoard={
@@ -109,9 +108,9 @@ function CollectionListItem({ collection, isDefault, onOpen }: CollectionListIte
             </div>
           ) : (
             preview.map((w) => (
-              <div key={w.object_number} className="collection-item__thumb">
-                {w.image_thumbnail && (
-                  <img src={w.image_thumbnail} alt="" loading="lazy" />
+              <div key={w.key} className="collection-item__thumb">
+                {w.image.thumbnailUrl && (
+                  <img src={w.image.thumbnailUrl} alt="" loading="lazy" />
                 )}
               </div>
             ))
@@ -179,7 +178,7 @@ type CollectionViewProps = {
   onBack: () => void
   onRename: (name: string) => void
   onDelete: () => void
-  onRemoveWork: (objectNumber: string) => void
+  onRemoveWork: (workKey: string) => void
   onSelectWork: (work: Artwork) => void
   onInsertWork: (work: Artwork) => void
   onExportMoodBoard?: () => void
@@ -201,7 +200,7 @@ function CollectionView({
   const [name, setName] = useState(collection.name)
   const [menuOpen, setMenuOpen] = useState(false)
 
-  const favoriteIds = new Set(collection.works.map((w) => w.object_number))
+  const favoriteIds = new Set(collection.works.map((w) => w.key))
 
   return (
     <div className="collection-view">
@@ -306,7 +305,7 @@ function CollectionView({
             onInsert={onInsertWork}
             insertingId={insertingId}
             favoriteIds={favoriteIds}
-            onToggleFavorite={(work) => onRemoveWork(work.object_number)}
+            onToggleFavorite={(work) => onRemoveWork(work.key)}
           />
         )}
       </div>

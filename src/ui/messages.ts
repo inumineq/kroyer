@@ -1,4 +1,4 @@
-import type { Collection } from './types'
+import type { Collection } from '../shared/model'
 
 export type Caption = {
   title: string

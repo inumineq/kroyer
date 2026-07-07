@@ -1,21 +1,19 @@
 import { useCallback, useState } from 'react'
-import type { Artwork } from '../api/smkClient'
-import { pickImageUrl } from '../api/iiifClient'
+import type { Artwork } from '../../shared/model'
+import { imageUrlFor } from '../images/sizing'
 import { fetchImageWithDimensions } from '../utils/images'
 import { postToPlugin, type Caption } from '../messages'
 import type { InsertSize } from '../types'
 
 function buildLayerName(work: Artwork): string {
-  const title = work.titles?.[0]?.title ?? 'Untitled'
-  const artist = work.artist?.[0] ?? 'Unknown'
-  return `${artist} — ${title}`
+  return `${work.artist} — ${work.title}`
 }
 
 function buildCaption(work: Artwork): Caption {
   return {
-    title: work.titles?.[0]?.title ?? 'Untitled',
-    artist: work.artist?.[0] ?? 'Unknown',
-    year: work.production_date?.[0]?.period,
+    title: work.title,
+    artist: work.artist,
+    year: work.dateText,
   }
 }
 
@@ -30,13 +28,13 @@ export function useInsertImage() {
 
   const insertArtwork = useCallback(
     async (work: Artwork, options: InsertOptions) => {
-      const url = pickImageUrl(work, options.size)
+      const url = imageUrlFor(work, options.size)
       if (!url) {
         setInsertError('No image available for this artwork')
         return
       }
 
-      setInserting(work.object_number)
+      setInserting(work.key)
       setInsertError(null)
       try {
         const { bytes, width, height } = await fetchImageWithDimensions(url)

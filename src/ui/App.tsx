@@ -12,7 +12,9 @@ import { useSearch } from './hooks/useSearch'
 import { useInsertImage } from './hooks/useInsertImage'
 import { postToPlugin } from './messages'
 import { fetchImageWithDimensions } from './utils/images'
-import { pickImageUrl } from './api/iiifClient'
+import { imageUrlFor } from './images/sizing'
+import { getProvider, DEFAULT_PROVIDER_ID } from './providers/registry'
+import { hydrateCollections } from './storage/migrate'
 import {
   DEFAULT_FILTERS,
   type Filters,
@@ -20,7 +22,7 @@ import {
   type Tab,
   type Collection,
 } from './types'
-import type { Artwork } from './api/smkClient'
+import type { Artwork } from '../shared/model'
 import {
   ensureDefaultCollection,
   favoriteIdsFor,
@@ -44,7 +46,8 @@ export function App() {
 
   const [exportingMoodBoard, setExportingMoodBoard] = useState<{ name: string; progress: number; total: number } | null>(null)
 
-  const search = useSearch(query, filters)
+  const provider = getProvider(DEFAULT_PROVIDER_ID)
+  const search = useSearch(provider, query, filters)
   const insert = useInsertImage()
 
   useEffect(() => {
@@ -52,7 +55,7 @@ export function App() {
       const msg = e.data?.pluginMessage
       if (msg?.type === 'init') {
         setHistory(msg.history ?? [])
-        setCollections(ensureDefaultCollection(msg.collections ?? []))
+        setCollections(ensureDefaultCollection(hydrateCollections(msg.collections)))
         setInitialized(true)
       }
     }
@@ -104,12 +107,12 @@ export function App() {
     setCollections((prev) => ensureDefaultCollection(deleteCollection(prev, id)))
   }
 
-  function handleRemoveFromCollection(collectionId: string, objectNumber: string) {
-    setCollections((prev) => removeWorkFrom(prev, collectionId, objectNumber))
+  function handleRemoveFromCollection(collectionId: string, workKey: string) {
+    setCollections((prev) => removeWorkFrom(prev, collectionId, workKey))
   }
 
   async function handleExportMoodBoard(collection: Collection) {
-    const eligible = collection.works.filter((w) => w.image_thumbnail)
+    const eligible = collection.works.filter((w) => w.image.thumbnailUrl)
     if (eligible.length === 0) {
       postToPlugin({ type: 'notify', message: 'No images in this collection to export', error: true })
       return
@@ -119,7 +122,7 @@ export function App() {
 
     const items = []
     for (const work of eligible) {
-      const url = pickImageUrl(work, 'medium')
+      const url = imageUrlFor(work, 'medium')
       if (!url) continue
       try {
         const { bytes, width, height } = await fetchImageWithDimensions(url)
@@ -127,8 +130,8 @@ export function App() {
           imageBytes: bytes,
           width,
           height,
-          title: work.titles?.[0]?.title ?? 'Untitled',
-          artist: work.artist?.[0] ?? 'Unknown',
+          title: work.title,
+          artist: work.artist,
         })
       } catch {
         // Skip individual failures, keep going
@@ -193,7 +196,7 @@ export function App() {
               <StateMessage
                 variant="error"
                 message={search.error ?? undefined}
-                hint="The SMK API might be down. Wait a moment and try again."
+                hint={`The ${provider.shortLabel} API might be down. Wait a moment and try again.`}
               />
             )}
 
@@ -256,13 +259,13 @@ export function App() {
 
       {selectedWork && (
         <DetailPanel
-          key={selectedWork.object_number}
+          key={selectedWork.key}
           work={selectedWork}
           onClose={() => setSelectedWork(null)}
           onInsert={handleInsertFromDetail}
           onSelectRelated={setSelectedWork}
-          inserting={insert.inserting === selectedWork.object_number}
-          isFavorite={favoriteIds.has(selectedWork.object_number)}
+          inserting={insert.inserting === selectedWork.key}
+          isFavorite={favoriteIds.has(selectedWork.key)}
           onToggleFavorite={() => handleToggleFavorite(selectedWork)}
         />
       )}
