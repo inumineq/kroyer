@@ -8,8 +8,8 @@ const API_BASE = 'https://api.smk.dk/api/v1'
 
 /**
  * Only request the fields the UI actually uses — the default payload is much
- * larger. NOTE: validated against SMK's documented API, but not against the
- * live endpoint from this environment; smoke-test before release.
+ * larger. Validated against the live endpoint (2026-07-07): every field below
+ * returns 200 individually.
  */
 const FIELDS = [
   'id',
@@ -25,7 +25,8 @@ const FIELDS = [
   'image_native',
   'image_width',
   'image_height',
-  'frontend_url',
+  // NOT frontend_url: requesting it makes the API 500 ("No such list field:
+  // frontend_url_da"); the mapper derives it from object_number instead.
   'similar_images_url',
   'credit_line',
   'notes',
