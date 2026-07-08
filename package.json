@@ -1,6 +1,6 @@
 {
   "name": "kroyer-figma-plugin",
-  "version": "0.1.0",
+  "version": "0.2.0",
   "private": true,
   "description": "Krøyer — Figma plugin for searching public-domain artworks from Statens Museum for Kunst (SMK). Search, filter, drag-to-insert, save collections, extract palettes, export mood boards. Named after the Danish painter P.S. Krøyer.",
   "license": "MIT",
