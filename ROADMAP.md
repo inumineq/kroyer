@@ -187,6 +187,11 @@ Beyond the phases above — the features that make the plugin *ultimate* rather 
 - The accessibility fixes from defect B.8: focus trap + initial focus in dialogs, Escape/outside-click handling with proper stacking, styled confirm dialogs, `prefers-reduced-motion`, keyboard-accessible resize and insert, live-region result announcements.
 - i18n groundwork (en/da) — SMK returns Danish metadata; request `lang` where the API supports it and prepare UI strings for translation.
 
+### Distribution & release
+Two layers, cheap-to-turnkey:
+- **Prebuilt GitHub Release (shipped).** `.github/workflows/release.yml` runs the CI gates on a `v*` tag, then attaches a `kroyer-<version>.zip` (manifest + compiled `dist/`) to an auto-generated release. Users import the manifest with no Node/npm/build step. This is the current recommended install path.
+- **Figma Community listing (planned — true one-click).** The manifest already carries a registered plugin `id`, so the work is the publishing flow itself: cover art, description, category, and Figma's review. Cannot be automated in CI — it's a manual upload of a build per release — but it's the only path that gives non-technical users in-Figma **Install** and automatic updates. Target this as the public launch once the multi-museum release is stable.
+
 ## F. Risks
 
 1. **Manifest re-review latency / missed image CDNs.** All domains must be declared up front, and a provider's *image* host often differs from its API host (Rijksmuseum serves via googleusercontent). Mitigation: the build-time domains-vs-manifest assertion, plus manual smoke-testing of each provider's real image URLs before submission.

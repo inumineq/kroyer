@@ -54,6 +54,16 @@ Search across five museums' open-access collections — millions of artworks com
 - Spelling corrections ("Did you mean…") from SMK's API
 - React `ErrorBoundary` catches UI crashes and offers a Try-Again
 
+## Install
+
+### Download a prebuilt release (no build step)
+
+1. Grab `kroyer-<version>.zip` from the [latest release](../../releases/latest).
+2. Unzip it — you get a `kroyer-<version>/` folder containing `manifest.json` and a `dist/` folder.
+3. In Figma desktop: **Plugins → Development → Import plugin from manifest…** and select the `manifest.json` inside that folder.
+
+No Node, no npm, no build — the plugin is already compiled. This is the fastest way to run Krøyer today. (A one-click Figma Community listing is planned; see [ROADMAP.md](./ROADMAP.md).)
+
 ## Local development
 
 ```bash
